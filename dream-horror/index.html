@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hollow Lullaby</title>
+<style>
+  :root{--ink:#d9d2c4;--blood:#8a1c1c;--bg:#050508}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  #sub{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);max-width:min(80vw,720px);text-align:center;font-size:clamp(16px,2.2vw,24px);font-style:italic;letter-spacing:.03em;text-shadow:0 0 8px #000,0 0 2px #000;opacity:0;transition:opacity 1.2s}
+  #sub.on{opacity:1}
+  #prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-size:15px;letter-spacing:.15em;text-transform:uppercase;opacity:0;transition:opacity .2s;text-shadow:0 0 6px #000}
+  #prompt.on{opacity:.9}
+  #dot{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#fff;opacity:.35}
+  #card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity 2s;text-align:center;letter-spacing:.3em;text-transform:uppercase}
+  #card.on{opacity:1}
+  #card small{display:block;letter-spacing:.2em;opacity:.6;font-size:14px;margin-bottom:12px}
+  #card b{font-weight:400;font-size:clamp(22px,4vw,44px)}
+  #san{position:absolute;left:18px;bottom:18px;width:120px;height:3px;background:#ffffff18}
+  #san i{display:block;height:100%;width:100%;background:#b9b3a4;transition:width .3s,background .3s}
+  #hint{position:absolute;right:18px;bottom:14px;font-size:12px;opacity:.35;letter-spacing:.1em;text-align:right;line-height:1.7}
+  .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at center,#0b0b12 0%,#020204 80%);text-align:center;padding:24px;z-index:5;cursor:pointer}
+  .screen.hidden{display:none}
+  .screen h1{font-weight:400;font-size:clamp(34px,8vw,84px);letter-spacing:.25em;margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 30px #5a0d0d}
+  .screen p{max-width:560px;opacity:.7;line-height:1.6;margin:8px 0}
+  .screen .go{margin-top:26px;border:1px solid #d9d2c466;padding:12px 34px;letter-spacing:.3em;text-transform:uppercase;font-size:14px;animation:pulse 3s infinite}
+  .keys{font-size:13px;opacity:.55;letter-spacing:.08em;margin-top:22px;line-height:1.9}
+  @keyframes pulse{50%{opacity:.4}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="dot"></div>
+  <div id="prompt"></div>
+  <div id="sub"></div>
+  <div id="card"><small></small><b></b></div>
+  <div id="san"><i></i></div>
+  <div id="hint">F flashlight · hold Q close eyes</div>
+</div>
+<div id="menu" class="screen">
+  <h1>Hollow Lullaby</h1>
+  <p>You are asleep. You know you are asleep. That is not the same as being able to wake up.</p>
+  <p>Find the memories. Keep your grip. Do not stop looking at it.</p>
+  <div class="go">Click to enter the dream</div>
+  <div class="keys">WASD move · Shift run · Mouse look (arrows also work)<br>E interact · F flashlight · hold Q close your eyes<br>Headphones recommended</div>
+</div>
+<div id="pause" class="screen hidden"><h1 style="font-size:40px">Paused</h1><div class="go">Click to return</div></div>
+<div id="end" class="screen hidden"><h1 style="font-size:44px">Are you awake?</h1><p id="endtxt"></p><div class="go">Click to dream again</div></div>
+<script src="three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
