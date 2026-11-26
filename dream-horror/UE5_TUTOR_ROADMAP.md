@@ -109,3 +109,11 @@ Add it to your portfolio with a short capture of the Watcher mechanic.
 Play it once, then pick a lesson and open `game.js` only to read the matching function:
 `updateWatcher` (Lesson 7), `canSee` (Lesson 7), the `post` shader (Lesson 6), `ch1.update` (Lesson 8), `A.update` (Lesson 9).
 Reimplement the idea in UE rather than translating line by line: you'll learn Unreal's way of solving it.
+
+## Bonus lesson — the Verdant (phototropic monster)
+Prototype: `makePlantMan`, `animatePlantMan`, `ch4.update` in `game.js`.
+- **Logic:** speed depends on a *player state*, not on being seen: flashlight on → fast, off → slow, running → +noise.
+  In UE5: read `SpotLightComponent->IsVisible()` from the character, or use `UAIPerceptionComponent` with sight + hearing senses and map "light on" to a larger sight radius.
+- **Procedural animation:** sway vines/petals with sine waves in C++ (`USceneComponent::SetRelativeRotation` per tick) or, cheaper, in the material with **World Position Offset**.
+- **Dormant-until-triggered:** spawn it with AI disabled (`AIController->StopMovement()`), enable it from a delegate fired when the first note is picked up.
+- *Homework:* add a `UPROPERTY(EditAnywhere) float LitSpeed, DarkSpeed;` so a designer can tune it in the editor without recompiling.

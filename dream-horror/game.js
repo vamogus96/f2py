@@ -331,7 +331,7 @@ function updateWatcher(dt, catchFn) {
 /* hallucination: a figure at the edge of vision that evaporates when you look */
 const ghost = { g: null, t: 0 };
 function updateGhost(dt) {
-  if (S.sanity > .55 || S.chapter < 1) { if (ghost.g) ghost.g.visible = false; return; }
+  if (S.sanity > .55 || S.chapter < 1 || S.chapter === 4) { if (ghost.g) ghost.g.visible = false; return; }
   if (!ghost.g) { ghost.g = makeWatcher(); ghost.g.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = .65; } }); scene.add(ghost.g); ghost.g.visible = false; }
   if (!ghost.g.visible) {
     ghost.t -= dt;
@@ -696,7 +696,148 @@ const ch3 = {
     S.tension = Math.max(S.tension, clamp(-player.z / 80, 0, .8));
   },
 };
-const chapters = [ch0, ch1, ch2, ch3];
+
+/* ═════════════════════════ THE VERDANT — plant-man monster (demo) ═════════════════════════ */
+function texBark() {
+  return mkCanvas(128, 128, (g, w, h) => {
+    g.fillStyle = '#4a5a34'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 4) { g.fillStyle = `hsl(${rnd(70, 110)},${rnd(25, 45)}%,${rnd(14, 32)}%)`; g.fillRect(x, 0, rnd(2, 5), h); }
+    g.strokeStyle = '#1a1d0c'; g.globalAlpha = .5; for (let i = 0; i < 24; i++) { g.beginPath(); const x = rnd(0, w); g.moveTo(x, rnd(0, h)); g.lineTo(x + rnd(-6, 6), rnd(0, h)); g.stroke(); }
+    g.globalAlpha = 1; noise(g, w, h, 28);
+  });
+}
+function makePlantMan() {
+  const g = new T.Group(), bark = mat({ map: texBark(), color: 0x9aa47c, emissive: 0x0a1405 }), leaf = mat({ color: 0x2f8a3a, emissive: 0x0f4a1a, side: T.DoubleSide });
+  const glowM = new T.MeshBasicMaterial({ color: 0xb4ff5a }), skin = mat({ color: 0x8a9a6a, emissive: 0x141c0a });
+  // root-legs
+  [-1, 1].forEach(s => {
+    const th = cyl(.1, .15, .9, s * .18, .75, 0, bark, 7, g); th.rotation.z = s * .08;
+    const sh = cyl(.06, .1, .8, s * .2, .32, .05, bark, 7, g);
+    for (let i = 0; i < 5; i++) { const r = cyl(.0, .05, .5, s * .2 + Math.cos(i * 1.3) * .15, .05, Math.sin(i * 1.3) * .2, bark, 5, g); r.rotation.set(Math.sin(i * 1.3) * 1.2, 0, -Math.cos(i * 1.3) * 1.2); }
+  });
+  // hunched torso with glowing ribs and a pulsing seed pod
+  const torso = new T.Group(); torso.position.set(0, 1.45, 0); torso.rotation.x = .22; g.add(torso);
+  cyl(.27, .21, 1.15, 0, 0, 0, bark, 9, torso);
+  for (let i = 0; i < 4; i++) { const rib = new T.Mesh(new T.TorusGeometry(.26 - i * .015, .018, 5, 14, Math.PI), glowM); rib.position.set(0, .35 - i * .2, .02); rib.rotation.set(0, 0, Math.PI); rib.rotation.x = Math.PI / 2 * 0; torso.add(rib); rib.rotation.y = Math.PI / 2; rib.rotation.set(Math.PI / 2, 0, 0); rib.scale.set(1, 1, 1); rib.position.y = .35 - i * .2; rib.rotation.z = 0; }
+  const pod = sph(.13, 0, .1, .22, glowM, torso);
+  // arms: long, thorned, knuckles near the knees
+  const arms = [];
+  [-1, 1].forEach(s => {
+    const a = new T.Group(); a.position.set(s * .33, .5, 0); torso.add(a);
+    cyl(.07, .05, .85, 0, -.42, 0, bark, 6, a); const fo = new T.Group(); fo.position.set(0, -.85, 0); a.add(fo);
+    cyl(.05, .035, .9, 0, -.45, 0, bark, 6, fo);
+    for (let i = 0; i < 4; i++) { const c = cyl(0, .02, .3, (i - 1.5) * .035, -1.0, 0, glowM, 4, fo); c.rotation.x = .1; }
+    for (let i = 0; i < 6; i++) { const t = cyl(0, .02, .12, 0, -.2 - i * .12, 0, bark, 4, fo); t.position.x = (i % 2 ? .04 : -.04); t.rotation.z = (i % 2 ? -1 : 1) * 1.3; }
+    arms.push(a);
+  });
+  // head: pale human-ish face inside an opening flower collar
+  const head = new T.Group(); head.position.set(0, 1.0, .12); torso.add(head);
+  cyl(.07, .09, .25, 0, -.12, 0, bark, 6, head);
+  const sk = sph(.15, 0, .08, 0, skin, head); sk.scale.set(.9, 1.25, .95);
+  [-1, 1].forEach(s => sph(.022, s * .055, .1, .13, glowM, head));
+  const mo = new T.Mesh(new T.PlaneGeometry(.07, .015), new T.MeshBasicMaterial({ color: 0x000000 })); mo.position.set(0, -.02, .14); head.add(mo);
+  const petals = [];
+  for (let i = 0; i < 9; i++) {
+    const p = new T.Group(); p.rotation.y = i / 9 * Math.PI * 2; p.position.set(0, .12, 0); head.add(p);
+    const pm = new T.Mesh(new T.ConeGeometry(.09, .55, 5), leaf); pm.position.set(0, .26, .14); pm.scale.set(1, 1, .35); p.add(pm); petals.push({ p, pm });
+  }
+  sph(.06, 0, .3, 0, glowM, head);
+  // hanging vines and spores
+  const vines = [];
+  for (let i = 0; i < 12; i++) { const v = new T.Group(); const a = i / 12 * Math.PI * 2; v.position.set(Math.cos(a) * .22, .45 - (i % 3) * .2, Math.sin(a) * .22 - .02); torso.add(v); cyl(.018, .01, 1.0 + (i % 4) * .25, 0, -.55 - (i % 4) * .12, 0, leaf, 4, v); vines.push(v); }
+  const sg = new T.BufferGeometry(), sa = new Float32Array(70 * 3); for (let i = 0; i < 70; i++) { sa[i * 3] = rnd(-.9, .9); sa[i * 3 + 1] = rnd(.2, 2.8); sa[i * 3 + 2] = rnd(-.9, .9); }
+  sg.setAttribute('position', new T.BufferAttribute(sa, 3)); const spores = new T.Points(sg, new T.PointsMaterial({ color: 0xc8ff70, size: .05, transparent: true, opacity: .8 })); g.add(spores);
+  const gl = new T.PointLight(0x9dff6a, .9, 6, 1.6); gl.position.set(0, 1.7, .5); g.add(gl);
+  g.scale.setScalar(1.1); g.userData = { torso, head, arms, petals, vines, pod, spores, glow: gl };
+  return g;
+}
+function animatePlantMan(g, dt, openT, moving) {
+  const u = g.userData, t = S.time;
+  u.petals.forEach((p, i) => { p.p.rotation.x = lerp(p.p.rotation.x, -(.15 + openT * 1.0 + Math.sin(t * 2 + i) * .05), dt * 3); });
+  u.vines.forEach((v, i) => { v.rotation.x = Math.sin(t * 1.6 + i) * .18 + (moving ? .25 : 0); v.rotation.z = Math.cos(t * 1.3 + i * 1.7) * .18; });
+  u.arms.forEach((a, i) => { a.rotation.z = (i ? -1 : 1) * (.12 + Math.sin(t * (moving ? 3 : 1) + i * 2) * .08); a.rotation.x = moving ? Math.sin(t * 3 + i * 3) * .35 : .05; });
+  u.pod.scale.setScalar(1 + Math.sin(t * 6) * .18 + openT * .3); u.glow.intensity = .6 + openT * 1.6 + Math.sin(t * 6) * .15;
+  u.head.rotation.z = Math.sin(t * .9) * .12 + (moving ? Math.sin(t * 7) * .06 : 0); u.spores.rotation.y += dt * .3;
+  u.torso.rotation.x = .22 + Math.sin(t * 1.2) * .03;
+}
+
+/* ═════════════════════════ DEMO — THE GREENHOUSE (the Concord Program) ═════════════════════════ */
+const ch4 = {
+  name: ['Demo', 'The Greenhouse'],
+  build() {
+    scene.fog.color.set(0x050d08); scene.fog.density = .045; scene.background.set(0x050d08);
+    amb.color.set(0x3a6a48); amb.intensity = .75; moon.intensity = .55; moon.color.set(0x8aa0d0);
+    this.notes = 0; this.awake = false; this.exitOpen = false; this.pods = [];
+    const tile = texChecker(), wp = texWall('#2e3a2e', '#26322a');
+    slab(22, 18, 0, 0, 0, tile, 2); const roof = new T.Mesh(new T.PlaneGeometry(22, 18), new T.MeshLambertMaterial({ color: 0x6a8a7a, transparent: true, opacity: .14, side: T.DoubleSide })); roof.rotation.x = Math.PI / 2; roof.position.y = 4.6; world.add(roof);
+    for (let x = -11; x <= 11; x += 5.5) box(.12, .12, 18, x, 4.6, 0, mat({ color: 0x1a221c }), false);
+    for (let z = -9; z <= 9; z += 4.5) box(22, .12, .12, 0, 4.6, z, mat({ color: 0x1a221c }), false);
+    wallBox(22.4, 4.6, .2, 0, 9.1, tmat(wp, 6, 1.5)); wallBox(.2, 4.6, 18.4, 11.1, 0, tmat(wp, 5, 1.5)); wallBox(.2, 4.6, 18.4, -11.1, 0, tmat(wp, 5, 1.5));
+    wallBox(10.4, 4.6, .2, -5.8, -9.1, tmat(wp, 3, 1.5)); wallBox(10.4, 4.6, .2, 5.8, -9.1, tmat(wp, 3, 1.5)); box(1.2, 2.3, .2, 0, 3.45, -9.1, tmat(wp, 1, 1), false);
+    // overgrown planter beds (the mutated crops)
+    const soil = mat({ color: 0x2a1c12 }), green = mat({ color: 0x2f7a38, emissive: 0x0a2a10 });
+    [[-6.5, -4.5], [0, -4.5], [6.5, -4.5], [-6.5, 2.5], [6.5, 2.5]].forEach(([x, z]) => {
+      box(5, .7, 1.4, x, .35, z, soil); for (let i = 0; i < 16; i++) { const h = rnd(.6, 2.2), c = cyl(.0, rnd(.08, .25), h, x + rnd(-2.3, 2.3), .7 + h / 2, z + rnd(-.5, .5), green, 5); c.rotation.z = rnd(-.3, .3); if (i % 5 === 0) { const b = sph(.12, c.position.x, .7 + h, c.position.z, new T.MeshBasicMaterial({ color: 0xb4ff5a })); this.pods.push(b); } }
+    });
+    // gene tanks with figures growing inside
+    [[-9.5, -7], [9.5, -7], [-9.5, 7], [9.5, 7], [0, 7.8]].forEach(([x, z], i) => {
+      cyl(.9, .9, .2, x, .1, z, mat({ color: 0x222 }), 14); cyl(.9, .9, .2, x, 3.5, z, mat({ color: 0x222 }), 14);
+      const glass = cyl(.85, .85, 3.3, x, 1.8, z, new T.MeshLambertMaterial({ color: 0x3aff7a, transparent: true, opacity: .22, emissive: 0x0a4a1a }), 14);
+      const fig = cyl(.12, .22, 1.8, x, 1.7, z, mat({ color: 0x0a1a0c }), 7); sph(.17, x, 2.75, z, mat({ color: 0x0a1a0c })); this.pods.push(fig);
+      colliders.push({ x0: x - .9, x1: x + .9, z0: z - .9, z1: z + .9, on: true }); pointLight(0x4aff8a, 1.1, 10, x, 2.4, z);
+    });
+    // desks with the program's notes
+    const lines = [
+      ['Day 1. Hunger ended in the first ward. Crops that grow in the dark on a lamp the size of a thumb. We are going to fix everything.', 'Take the first page'],
+      ['Day 214. Cooperation genes from the vine families. No more violence in the volunteers. They smile with their whole faces. They do not blink.', 'Take the second page'],
+      ['Day 400. They are not sleeping. They are rooting. The city calls it the Improvement. Do not turn on the lights. They follow light.', 'Take the third page'],
+    ];
+    [[-8.5, 4.2], [8.5, -1.5], [0, 0.2]].forEach(([x, z], i) => {
+      box(2.2, .9, 1, x, .45, z, mat({ map: texWood(true) })); const note = new T.Group(); box(.4, .02, .3, 0, .01, 0, mat({ color: 0xeee6cc, emissive: 0x5a5440 }), false, note); const nl = new T.PointLight(0xfff0c0, .9, 5, 1.6); nl.position.y = .4; note.add(nl); note.position.set(x, 1.0, z); world.add(note);
+      const it = addInteract(note, lines[i][1], () => { world.remove(note); it.on = false; this.notes++; say(lines[i][0], 9500); A.thump(.6); if (this.notes === 1) this.wake(); if (this.notes >= 3) later(9800, () => this.unlock()); }, 2.4);
+    });
+    // exit hatch (north)
+    this.door = makeDoor(-.6, -9.1, 1.2, 2.3, true, 0, 0x20402a); this.doorCol = { x0: -.6, x1: .6, z0: -9.2, z1: -9.0, on: true }; colliders.push(this.doorCol); this.door.speed = 1;
+    this.exitLight = pointLight(0xffffff, 0, 8, 0, 1.6, -8.2);
+    // the Verdant: rooted among the beds until the first page is taken
+    this.mon = makePlantMan(); this.mon.position.set(9, 0, -2.5); this.mon.rotation.y = -Math.PI / 2; world.add(this.mon);
+    this.mon.userData.glow.intensity = .2; this.mon.userData.glow.distance = 3;
+    player.x = 0; player.z = 7.2; player.yaw = 0; player.pitch = 0; this.start = { x: 0, z: 7.2 };
+    later(1200, () => say('A greenhouse. Every tank in it is full.'));
+    later(7000, () => say('One of the plants by the east bed has a spine. Do not light it.', 5000));
+  },
+  wake() {
+    this.awake = true; A.sting(.9); S.spike = .6; S.flash = .3;
+    later(1500, () => say('It grows toward light. Your flashlight is a dinner bell. The dark is slower, but heavier.', 6500));
+  },
+  unlock() { this.exitOpen = true; this.doorCol.on = false; this.door.target = 1.5; this.exitLight.intensity = 1.6; A.creak(3, .07); say('The hatch opens. The way out smells of cut grass.', 5000); },
+  caught() {
+    if (S.fadeTarget === 0) return; S.fadeTarget = 0; S.flash = 1; A.sting(1.2); say('It was kind about it. That was the worst part.', 3500);
+    setTimeout(() => { player.x = this.start.x; player.z = this.start.z; player.yaw = 0; this.mon.position.set(rnd(-4, 4) + 8, 0, -4); S.sanity = Math.max(S.sanity, .6); S.fadeTarget = 1; S.flash = 0; }, 1700);
+  },
+  update(dt) {
+    this.pods.forEach((p, i) => { if (p.scale) p.scale.setScalar(1 + Math.sin(S.time * 2 + i) * .06); });
+    animateDoor(this.door, dt); S.wind = .03;
+    const m = this.mon, dx = player.x - m.position.x, dz = player.z - m.position.z, d = Math.hypot(dx, dz) || 1, lit = S.flashlightOn;
+    let moving = false, open = 0;
+    if (this.awake) {
+      const run = Math.hypot(player.vx, player.vz) > 3.6;
+      let sp = lit ? 2.05 : .55; if (run) sp += .9; if (S.eye > .5) sp *= .7;
+      const p = { x: m.position.x + dx / d * sp * dt, z: m.position.z + dz / d * sp * dt }; resolve(p, .5); m.position.x = p.x; m.position.z = p.z; moving = true;
+      m.rotation.y = Math.atan2(dx, dz); open = clamp(1 - d / 9, 0, 1);
+      S.scrape = lerp(S.scrape, clamp(.4 - d * .02, .04, .4) * (lit ? 1.3 : .6), dt * 5);
+      S.tension = Math.max(S.tension, clamp(1 - d / 14, 0, 1));
+      if (!lit) S.sanity -= dt * .018; else if (d > 9) S.sanity += dt * .02; else S.sanity -= dt * .01;
+      if (S.eye > .5) S.sanity += dt * .08;
+      if (d < 1.15) this.caught();
+    } else { m.rotation.z = Math.sin(S.time * .8) * .01; }
+    animatePlantMan(m, dt, open, moving);
+    if (S.sanity <= 0) { S.sanity = .5; this.caught(); }
+    S.sanity = clamp(S.sanity, 0, 1); S.insanBase = this.notes * .05;
+    if (this.exitOpen && player.z < -9.6) { S.fadeTarget = 0; later(1200, () => showEnd('End of the demo. The Concord Program is still improving the city. The Verdant is still growing.')); }
+  },
+};
+const chapters = [ch0, ch1, ch2, ch3, ch4];
 
 function goChapter(i) {
   S.chapter = i; currentCh = chapters[i];
@@ -725,14 +866,15 @@ document.addEventListener('mousemove', e => {
   if (locked || e.buttons & 1) { player.yaw -= e.movementX * .0022; player.pitch = clamp(player.pitch - e.movementY * .0022, -1.35, 1.35); }
 });
 function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
-function startGame() {
+function startGame(ch = 0) {
   A.init(); $('menu').classList.add('hidden'); $('pause').classList.add('hidden'); $('end').classList.add('hidden'); S.endShown = false;
-  if (!S.running) { S.running = true; S.sanity = 1; goChapter(0); } S.paused = false; lockPointer();
+  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; goChapter(ch); } S.paused = false; lockPointer();
 }
-$('menu').addEventListener('click', startGame);
+$('menu').addEventListener('click', () => startGame(0));
+$('demoBtn').addEventListener('click', e => { e.stopPropagation(); startGame(4); });
 $('pause').addEventListener('click', () => { A.init(); $('pause').classList.add('hidden'); S.paused = false; lockPointer(); });
-$('end').addEventListener('click', () => { S.running = false; S.sanity = 1; S.endShown = false; startGame(); });
-function showEnd() { S.endShown = true; $('endtxt').textContent = 'The dream remembers you. It will be here when you close your eyes.'; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
+$('end').addEventListener('click', () => { const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
+function showEnd(txt) { S.endShown = true; $('endtxt').textContent = txt || 'The dream remembers you. It will be here when you close your eyes.'; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
 
 function useInteract() {
   const it = target; if (it) it.onUse();
@@ -803,6 +945,6 @@ S.chapter = 0; currentCh = ch0; ch0.build(); S.fade = 1; S.chapter = -1; $('card
 requestAnimationFrame(frame);
 
 // debug / test hooks
-window.__dream = { S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
-const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; goChapter(+m[1]); $('menu').classList.add('hidden'); }
+window.__dream = { ch4, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
+const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); }
 })();
