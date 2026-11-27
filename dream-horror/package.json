@@ -3,6 +3,11 @@
   "version": "0.3.0",
   "private": true,
   "description": "Hollow Lullaby - dream horror prototype with an optional multiplayer relay for the Void battle",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "ws": "^8.18.0" }
+  "scripts": {
+    "start": "node server.js",
+    "check:licenses": "node scripts/check-licenses.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }
