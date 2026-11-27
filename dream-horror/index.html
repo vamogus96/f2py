@@ -29,6 +29,37 @@
   .screen .go{margin-top:26px;border:1px solid #d9d2c466;padding:12px 34px;letter-spacing:.3em;text-transform:uppercase;font-size:14px;animation:pulse 3s infinite}
   .keys{font-size:13px;opacity:.55;letter-spacing:.08em;margin-top:22px;line-height:1.9}
   @keyframes pulse{50%{opacity:.4}}
+  .sess{margin-top:18px;font-size:13px;letter-spacing:.08em;opacity:.75;line-height:1.7}
+  .sess span{color:#9fe0ff}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+  .go.small{margin-top:10px;padding:8px 16px;font-size:11px;animation:none;opacity:.8}
+  .go.small:hover{opacity:1}
+  .go.green{border-color:#7ad06a88;color:#b4ff8a}
+  body.office #sub{bottom:52%}
+  body.office #dot,body.office #san{display:none}
+  #office{position:fixed;left:0;right:0;bottom:0;height:46vh;z-index:4;display:flex;flex-direction:column;background:linear-gradient(#1a140fe0,#0c0907f5);border-top:1px solid #6a5a44;font-family:"Courier New",monospace;color:#e8dcc4}
+  #office.hidden{display:none}
+  #ofTop{display:flex;gap:18px;flex-wrap:wrap;padding:8px 14px;font-size:12px;letter-spacing:.08em;border-bottom:1px solid #3a3024;text-transform:uppercase}
+  #ofBody{flex:1;display:flex;gap:12px;padding:10px 12px;overflow:auto;min-height:0}
+  #ofRules{flex:0 0 240px;background:#d9cfb6;color:#2a2218;padding:10px;font-size:12px;line-height:1.45}
+  #ofRules ol{padding-left:18px;margin:6px 0}
+  #ofRules li.new{color:#1f5a2a}
+  #ofDocs{flex:1;display:flex;gap:10px;flex-wrap:wrap;align-content:flex-start;position:relative;min-width:0}
+  .doc{background:#e9e0c8;color:#2a2218;padding:10px 12px;font-size:12px;line-height:1.55;width:200px;max-width:100%;box-shadow:0 4px 10px #0008}
+  .doc h4{margin:0 0 6px;font-size:12px;letter-spacing:.12em;border-bottom:1px solid #2a221855;padding-bottom:4px}
+  .doc.permit{background:#c9d2d6}.doc.loan{background:#cfe3c2}
+  .doc.note{background:#f3eed8;font-family:Georgia,serif;font-style:italic;transform:rotate(-2deg);width:190px}
+  .seal{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid #7a1a1a;color:#7a1a1a;font-weight:bold;vertical-align:middle}
+  .seal.none{border:2px dashed #7778}
+  #ofActions{flex:0 0 170px;display:flex;flex-direction:column;gap:8px}
+  #ofActions button{font:inherit;padding:12px;border:1px solid #0006;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-weight:bold}
+  #bApprove{background:#3f6a3a;color:#eef}#bDeny{background:#7a2a22;color:#fee}#bRefer{background:#2f5a46;color:#dfe}
+  #ofMsg{font-size:12px;line-height:1.4;opacity:0;transition:opacity .4s;color:#ffd890}
+  #ofMsg.on{opacity:1}#ofMsg.bad{color:#ff7a6a}
+  .stamp{position:absolute;top:28%;left:18%;font-size:30px;font-weight:bold;border:4px solid;padding:4px 14px;transform:rotate(-12deg);opacity:.85;pointer-events:none}
+  .stamp.approve{color:#2f7a2a;border-color:#2f7a2a}.stamp.deny{color:#a0221a;border-color:#a0221a}.stamp.refer{color:#1f6a4a;border-color:#1f6a4a}
+  b.neg{color:#ff7a6a}
+  @media (max-width:720px){#office{height:60vh}#ofBody{flex-direction:column}#ofRules,#ofActions{flex:none}#ofActions{flex-direction:row;flex-wrap:wrap}#ofActions button{flex:1}}
 </style>
 </head>
 <body>
@@ -39,16 +70,30 @@
   <div id="sub"></div>
   <div id="card"><small></small><b></b></div>
   <div id="san"><i></i></div>
-  <div id="hint">F flashlight · hold Q close eyes</div>
+  <div id="hint">F flashlight · hold Q close eyes · hold R listen</div>
 </div>
 <div id="menu" class="screen">
   <h1>Hollow Lullaby</h1>
-  <p>You are asleep. You know you are asleep. That is not the same as being able to wake up.</p>
-  <p>Find the memories. Keep your grip. Do not stop looking at it.</p>
+  <p>Year 47 of the Concord. Breathing is taxed by the litre, and the price goes up every afternoon. Aurel Ressel stamps oxygen permits in Booth 9. His ears never stop ringing.</p>
+  <p>At night he dreams of the people he sent away. In his dreams the ringing is how he hears them.</p>
   <div class="go">Click to enter the dream</div>
-  <div class="go" id="demoBtn" style="margin-top:12px;border-color:#7ad06a88;color:#b4ff8a">Demo: The Verdant (plant-man monster)</div>
-  <div class="keys">WASD move · Shift run · Mouse look (arrows also work)<br>E interact · F flashlight · hold Q close your eyes<br>Headphones recommended</div>
+  <div id="session" class="sess"></div>
+  <div class="row">
+    <div class="go small" id="rerollBtn">Reroll the dream</div>
+    <div class="go small" id="officeBtn">Waking: Oxygen Tax Bureau</div>
+    <div class="go small green" id="demoBtn">Demo: The Verdant</div>
+  </div>
+  <div class="keys">WASD move · Shift run · mouse look (arrows also work)<br>E interact · F flashlight · hold Q close your eyes · hold R listen to the ringing<br>Headphones recommended</div>
 </div>
+<div id="office" class="hidden">
+  <div id="ofTop"></div>
+  <div id="ofBody">
+    <div id="ofRules"></div>
+    <div id="ofDocs"></div>
+    <div id="ofActions"><button id="bApprove">1 · Approve</button><button id="bDeny">2 · Deny</button><button id="bRefer">3 · Refer to Concord</button><div id="ofMsg"></div></div>
+  </div>
+</div>
+<div id="ofSummary" class="screen hidden" style="cursor:default"><h1 style="font-size:34px">End of shift</h1><p id="sumBody" style="font-family:'Courier New',monospace;opacity:.9"></p><div class="go" id="sleepBtn" style="cursor:pointer">Go to sleep</div></div>
 <div id="pause" class="screen hidden"><h1 style="font-size:40px">Paused</h1><div class="go">Click to return</div></div>
 <div id="end" class="screen hidden"><h1 style="font-size:44px">Are you awake?</h1><p id="endtxt"></p><div class="go">Click to dream again</div></div>
 <script src="three.min.js"></script>

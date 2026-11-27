@@ -117,3 +117,15 @@ Prototype: `makePlantMan`, `animatePlantMan`, `ch4.update` in `game.js`.
 - **Procedural animation:** sway vines/petals with sine waves in C++ (`USceneComponent::SetRelativeRotation` per tick) or, cheaper, in the material with **World Position Offset**.
 - **Dormant-until-triggered:** spawn it with AI disabled (`AIController->StopMovement()`), enable it from a delegate fired when the first note is picked up.
 - *Homework:* add a `UPROPERTY(EditAnywhere) float LitSpeed, DarkSpeed;` so a designer can tune it in the editor without recompiling.
+
+## Bonus lesson — the Oxygen Tax Bureau (UI-driven gameplay)
+Prototype: `chOffice` and the `APPS` table in `game.js`.
+- **Data, not code:** put applicants in a **Data Table** (`USTRUCT(BlueprintType) struct FApplicant : public FTableRowBase` with `UPROPERTY` fields). Designers add applicants without recompiling.
+- **Rules as functions:** `TArray<FString> Violations(const FApplicant&) const` and `EDecision Expected(...)`. Write them as pure functions so you can unit-test them with the Automation framework.
+- **UI:** UMG widgets (`UUserWidget` subclass with `UPROPERTY(meta=(BindWidget)) UButton* ApproveButton;`). `BindWidget` makes the C++ class require a widget of that name in the Blueprint layout.
+- **Seated player:** switch input mode with `SetInputMode(FInputModeGameAndUI())` and show the cursor.
+
+## Bonus lesson — dream sessions and the tinnitus resonance
+- **Seeds:** `FRandomStream Stream(Seed);` makes every roll reproducible. Store the seed in a `UGameInstanceSubsystem` so it survives level changes.
+- **Strangeness:** each modifier is a scalar in a Material Parameter Collection (hue, invert, roll), read by your post-process material.
+- **Echoes:** actors whose material opacity is driven by a `ListenAmount` float, interactable only while `ListenAmount > 0.5`. Tinnitus is a MetaSound sine pair whose gain follows the same float.

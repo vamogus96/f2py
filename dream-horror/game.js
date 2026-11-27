@@ -26,18 +26,24 @@ const post = {
   scene: new T.Scene(),
   cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1),
   mat: new T.ShaderMaterial({
-    uniforms: { t: { value: rt.texture }, time: { value: 0 }, insan: { value: 0 }, flash: { value: 0 }, eye: { value: 0 }, fade: { value: 1 } },
+    uniforms: { t: { value: rt.texture }, time: { value: 0 }, insan: { value: 0 }, flash: { value: 0 }, eye: { value: 0 }, fade: { value: 1 }, hue: { value: 0 }, invert: { value: 0 }, ghost: { value: 0 }, listen: { value: 0 }, tint: { value: new T.Vector3(1, 1, 1) } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
     fragmentShader: `
-      uniform sampler2D t; uniform float time,insan,flash,eye,fade; varying vec2 vUv;
+      uniform sampler2D t; uniform float time,insan,flash,eye,fade,hue,invert,ghost,listen; uniform vec3 tint; varying vec2 vUv;
+      vec3 hueRot(vec3 c,float a){ mat3 toY=mat3(.299,.596,.211,.587,-.274,-.523,.114,-.322,.312); mat3 toR=mat3(1.,1.,1.,.956,-.272,-1.106,.621,-.647,1.703); vec3 y=toY*c; float an=atan(y.z,y.y+1e-5)+a, ch=length(y.yz); y.y=ch*cos(an); y.z=ch*sin(an); return toR*y; }
       float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
       void main(){
         vec2 c=vUv-.5; float d=length(c);
         vec2 uv=vUv + insan*.010*vec2(sin(vUv.y*18.+time*1.7),cos(vUv.x*14.+time*1.3));
         uv=.5+(uv-.5)*(1.-insan*.10*d*d*4.);
+        uv+=listen*.006*sin(d*70.-time*7.)*(c/(d+.001));
         float ab=.0015+insan*.010+flash*.02;
         vec3 col; col.r=texture2D(t,uv+c*ab).r; col.g=texture2D(t,uv).g; col.b=texture2D(t,uv-c*ab).b;
+        col=mix(col,texture2D(t,uv+vec2(.014,.005)).rgb,ghost*.38);
+        col=hueRot(col,hue)*tint;
         float g=dot(col,vec3(.3,.59,.11)); col=mix(col,vec3(g)*vec3(1.,.95,.9),insan*.55);
+        col=mix(col,vec3(g)*vec3(.75,.95,1.15),listen*.55);
+        col=mix(col,vec3(1.)-col,invert);
         col*=mix(.28,1.,smoothstep(.9,.22,d*(1.+insan*.7)));
         col+=(h(uv*vec2(1100.,900.)+time)-.5)*(.06+insan*.10);
         col=mix(col,vec3(1.),clamp(flash,0.,1.));
@@ -134,6 +140,8 @@ const A = {
     const c = this.ctx = new C();
     this.out = c.createGain(); this.out.gain.value = .9;
     const comp = c.createDynamicsCompressor(); this.out.connect(comp); comp.connect(c.destination);
+    this.tin = c.createGain(); this.tin.gain.value = 0; this.tin.connect(comp); this.tinOsc = [];
+    [6150, 6168].forEach(f => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.connect(this.tin); o.start(); this.tinOsc.push(o); });
     const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.nb = nb;
@@ -169,6 +177,7 @@ const A = {
   slam() { this.burst(120, .8, .5, .7, 'lowpass'); this.thump(.8); },
   sting(v = 1) { this.burst(200, .5, 1.3, .5 * v, 'lowpass'); [233, 247, 349, 370].forEach((f, i) => this.tone(f, 1.8, .09 * v, 'sawtooth', i * .01)); this.tone(60, 1.6, .5 * v, 'sine', 0, 28); },
   whisperBurst(v = .08) { if (!this.ready) return; const g = this.wh.g.gain, t = this.now(); this.wh.f.frequency.setValueAtTime(rnd(1200, 3200), t); g.cancelScheduledValues(t); g.setValueAtTime(0, t); g.linearRampToValueAtTime(v, t + .25); g.linearRampToValueAtTime(0, t + rnd(.8, 1.8)); },
+  chime() { [1537.5, 2306, 3075].forEach((f, i) => this.tone(f, 2.4 - i * .4, .07 - i * .015, 'sine', i * .06)); },
   startBox(vol = .15) { this.box = { i: 0, t: 0, vol, on: true }; },
   stopBox() { if (this.box) this.box.on = false; },
   update(dt, st) {
@@ -178,6 +187,11 @@ const A = {
     this.sc.g.gain.setTargetAtTime(st.scrape, t, .05);
     this.sc.f.frequency.setTargetAtTime(500 + st.insan * 500, t, .2);
     this.wind.g.gain.setTargetAtTime(st.wind, t, .5);
+    // tinnitus: always there, louder with fear, deafening when you listen to it
+    const tg = Math.min(.035, (.0022 + st.insan * .006 + st.listen * .018 + st.ring) * (session.mods.storm ? 2.4 : 1));
+    this.tin.gain.setTargetAtTime(tg, t, .15);
+    const f0 = 6150 + st.insan * 700 - st.listen * 400; this.tinOsc[0].frequency.setTargetAtTime(f0, t, .3); this.tinOsc[1].frequency.setTargetAtTime(f0 + 18 + st.insan * 30, t, .3);
+    this.out.gain.setTargetAtTime(.9 * (1 - st.listen * .65), t, .1);
     this.hb -= dt;
     if (this.hb <= 0) { this.thump(.18 + st.tension * .5); setTimeout(() => this.thump(.1 + st.tension * .3), 170); this.hb = 60 / (52 + st.tension * 100); }
     if (this.box && this.box.on) {
@@ -194,11 +208,28 @@ const A = {
   },
 };
 
+/* ───────────────────────── dream sessions: every run dreams a different strangeness ───────────────────────── */
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const MODS = [
+  ['tilt', 'Tilted Horizon'], ['child', 'Child Height'], ['breath', 'Breathing Walls'], ['red', 'Red Tide'], ['hue', 'Hue Drift'], ['neg', 'Negative Moon'],
+  ['double', 'Double Vision'], ['long', 'Long Corridors'], ['heavy', 'Heavy Air'], ['echo', 'Echoing Steps'], ['storm', 'Tinnitus Storm'], ['pulse', 'Breathing Light'],
+];
+const session = { mods: {} };
+function newSession(seed) {
+  if (seed == null || isNaN(seed)) seed = 10000 + ((Math.random() * 89999) | 0);
+  const r = mulberry(seed), level = 1 + Math.floor(r() * 5), pool = MODS.slice(), mods = {}, names = [];
+  for (let i = 0; i < level; i++) { const m = pool.splice(Math.floor(r() * pool.length), 1)[0]; mods[m[0]] = true; names.push(m[1]); }
+  Object.assign(session, { seed, level, mods, names, roll: (r() < .5 ? -1 : 1) * (.06 + r() * .09), negT: 12 });
+  const el = document.getElementById('session');
+  if (el) el.innerHTML = `Dream session <b>#${seed}</b> &nbsp;·&nbsp; strangeness ${'●'.repeat(level)}${'○'.repeat(5 - level)}<br><span>${names.join(' · ')}</span>`;
+}
+newSession(+((/seed=(\d+)/.exec(location.search) || [])[1]));
+
 /* ───────────────────────── state ───────────────────────── */
 const keys = {};
 const S = {
   running: false, paused: false, time: 0, chapter: -1, sanity: 1, insanBase: 0, spike: 0, flash: 0, fade: 1, fadeTarget: 1,
-  eye: 0, flashlightOn: true, scrape: 0, wind: 0, tension: 0, input: true, fovKick: 0, shake: 0, wading: false,
+  eye: 0, listen: 0, ring: 0, seated: false, uiMode: false, heard: new Set(), moleHelped: false, citations: 0, flashlightOn: true, scrape: 0, wind: 0, tension: 0, input: true, fovKick: 0, shake: 0, wading: false,
 };
 const player = { x: 0, z: 0, yaw: 0, pitch: 0, bob: 0, lastStep: 0, r: 0.32, vx: 0, vz: 0 };
 const colliders = [], interactables = [], updaters = [];
@@ -227,7 +258,7 @@ function clearWorld() {
   scene.remove(world);
   world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
   world = new T.Group(); scene.add(world);
-  colliders.length = 0; interactables.length = 0; updaters.length = 0;
+  colliders.length = 0; interactables.length = 0; updaters.length = 0; echoes.length = 0;
 }
 function mat(opts) { return new T.MeshLambertMaterial(opts); }
 function tmat(tex, rx, ry, extra = {}) { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return mat(Object.assign({ map: t }, extra)); }
@@ -331,7 +362,7 @@ function updateWatcher(dt, catchFn) {
 /* hallucination: a figure at the edge of vision that evaporates when you look */
 const ghost = { g: null, t: 0 };
 function updateGhost(dt) {
-  if (S.sanity > .55 || S.chapter < 1 || S.chapter === 4) { if (ghost.g) ghost.g.visible = false; return; }
+  if (S.sanity > .55 || S.chapter < 1 || S.chapter >= 4) { if (ghost.g) ghost.g.visible = false; return; }
   if (!ghost.g) { ghost.g = makeWatcher(); ghost.g.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = .65; } }); scene.add(ghost.g); ghost.g.visible = false; }
   if (!ghost.g.visible) {
     ghost.t -= dt;
@@ -359,7 +390,31 @@ function makeBed(x, z, rot = 0) {
   return g;
 }
 function addInteract(obj, label, onUse, r = 2.4) { const it = { obj, label, onUse, r, on: true }; interactables.push(it); return it; }
-const ELEVEN = 11;
+/* Empathy echoes: people you failed, audible only at the frequency of your tinnitus. Hold R to listen. */
+const echoes = [], ECHO_TOTAL = 10;
+function addEcho(id, x, z, line) {
+  if (S.heard.has(id)) return;
+  const g = new T.Group(), m = new T.MeshBasicMaterial({ color: 0x8fe8ff, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false });
+  cyl(.16, .25, 1.25, 0, .72, 0, m, 8, g); sph(.15, 0, 1.55, 0, m, g);
+  [-1, 1].forEach(s => { const a = cyl(.05, .04, .75, s * .26, 1.0, 0, m, 5, g); a.rotation.z = s * .16; });
+  g.position.set(x, 0, z); world.add(g);
+  const e = { id, g, m, line, dying: false };
+  e.it = addInteract({ position: new T.Vector3(x, 1.2, z) }, 'Listen to the echo', () => hearEcho(e), 2.9);
+  e.it.cond = () => S.listen > .5; echoes.push(e);
+}
+function hearEcho(e) {
+  e.dying = true; e.it.on = false; S.heard.add(e.id); A.chime(); S.ring = .02;
+  S.sanity = Math.min(1, S.sanity + .25); say(e.line, 8000);
+}
+function updateEchoes(dt) {
+  for (let i = echoes.length - 1; i >= 0; i--) {
+    const e = echoes[i], tgt = e.dying ? 0 : S.listen * (.38 + .14 * Math.sin(S.time * 3 + e.g.position.x));
+    e.m.opacity = lerp(e.m.opacity, tgt, clamp(dt * (e.dying ? 1.5 : 6), 0, 1));
+    e.g.position.y = Math.sin(S.time * 1.3 + i) * .05 + (e.dying ? (1 - e.m.opacity) * 0 : 0);
+    e.g.rotation.y = Math.atan2(player.x - e.g.position.x, player.z - e.g.position.z);
+    if (e.dying && e.m.opacity < .01) { world.remove(e.g); echoes.splice(i, 1); }
+  }
+}
 
 /* ═════════════════════════ CHAPTER 0 — THE BEDROOM ═════════════════════════ */
 const ch0 = {
@@ -402,6 +457,7 @@ const ch0 = {
     this.placeEyes(0);
     lamp.color.set(0xffd9a0); lamp.intensity = 1.1; lamp.position.set(1.0, 1.9, .8); lamp.distance = 9; this.lampT = 1.1;
     player.x = 0.4; player.z = 0.2; player.yaw = Math.PI * .85; player.pitch = 0;
+    addEcho('e0', -1.6, 2.0, 'A child, ringing at your frequency: "Papa says the air costs more when you cry."');
     later(1500, () => say("You don't remember falling asleep."));
     later(7000, () => say('A small song is stuck in your head. It lives in a box in this room.'));
   },
@@ -464,6 +520,8 @@ const ch1 = {
     this.exitDoor = makeDoor(-.6, 3.95, 1.2, 2.3, true, 0, 0xcfc7b8); this.exitDoor.mesh.material.emissive = new T.Color(0x555044); this.exitDoor.speed = 1;
     watcher.active = false; this.watcher = makeWatcher(); this.watcher.visible = false; world.add(this.watcher);
     player.x = 0; player.z = 0; player.yaw = 0; player.pitch = 0;
+    addEcho('e1', .7, -24, 'Teo Barsk: "One, two, three floors. Breathe on four. The meter cannot hear you on four."');
+    addEcho('e2', -.7, -33, 'Ines Calder: "The renewal office is closed. It is always closed. I hold my breath in the lift."');
     this.applyLoop(0);
     this.wcol = null;
     later(2500, () => say('The hallway outside. You have never seen it before. You know every inch of it.'));
@@ -500,7 +558,7 @@ const ch1 = {
     } else {
       if (player.z > 2.0 && this.exitDoor.target === 0) { this.exitDoor.target = 1.5; A.creak(2, .07); }
       animateDoor(this.exitDoor, dt);
-      if (player.z > 3.3 && this.exitDoor.angle > .6) goChapter(2);
+      if (player.z > 3.3 && this.exitDoor.angle > .6) goChapter(5);
     }
     // doors that slam when you're not looking
     this.slamT -= dt;
@@ -567,6 +625,9 @@ const ch2 = {
     pointLight(0x6a98b8, 1.4, 30, 0, 4.5, 0); pointLight(0x6a98b8, 1.0, 22, 0, 4.5, -8);
     spawnWatcher(0, -9, .95);
     player.x = 0; player.z = 9.5; player.yaw = 0; player.pitch = 0;
+    addEcho('e3', -8, -8, 'Lene Okafor: "I paid this morning. The price was different this morning."');
+    addEcho('e4', 8, 8, 'Mara Ilves: "It said VOLUNTEER. I thought it meant the hospital."');
+    addEcho('e5', -16.5, 3, 'Josef Dunmore: "Fifty years I breathed this city. I only wanted to see my garden again."');
     later(1500, () => say('Water to the ankles. Everything you ever lost is in this house.'));
     later(7500, () => say('Three things of yours are here. Bring them back to the door.'));
     this.start = { x: 0, z: 9.5 };
@@ -662,6 +723,8 @@ const ch3 = {
     this.itemBed = addInteract(this.bedObj, 'Lie down', () => this.ending(), 3.4);
     watcher.active = false; spawnWatcher(0, 6, 1.6); watcher.g.position.set(0, 0, 4);
     player.x = 0; player.z = 1; player.yaw = 0; player.pitch = 0;
+    addEcho('e6', 0, -30, 'Ruta Vey, the one they call M: "They are not growing food from volunteers. They are growing volunteers into food."');
+    addEcho('e7', 1, -56, 'Your own voice, from the booth: "Next. Papers, please. Next."');
     this.ended = false;
     later(1500, () => say('There is a bed at the end of this. Someone is already in it.'));
     later(8000, () => say('Do not run. Running is what it wants you to do.', 4500));
@@ -669,10 +732,12 @@ const ch3 = {
   ending() {
     if (this.ended) return; this.ended = true; S.input = false; watcher.active = false; torch.intensity = 0;
     A.startBox(.2); A.box.loops = 3; S.spike = 1;
-    const lines = ['You lie down beside yourself.', 'You were never the one who was dreaming.', 'The song stops. The house is very quiet.', 'You open your eyes.', 'Something is standing at the foot of the bed.'];
+    const lines = ['You lie down beside yourself.', 'You were never the one who was dreaming.',
+      S.moleHelped ? 'Somewhere a woman called M is still breathing because of you. The ringing is softer.' : 'Everyone you sent away is ringing at once.',
+      'The song stops. The house is very quiet.', 'You open your eyes.', 'Something is standing at the foot of the bed. It is holding a Greening Loan with your name on it.'];
     lines.forEach((l, i) => setTimeout(() => say(l, 3400), i * 4200));
-    setTimeout(() => { S.flash = 1; A.sting(1.4); S.fadeTarget = 0; }, 4200 * 5 - 600);
-    setTimeout(() => showEnd(), 4200 * 5 + 2500);
+    setTimeout(() => { S.flash = 1; A.sting(1.4); S.fadeTarget = 0; }, 4200 * lines.length - 600);
+    setTimeout(() => showEnd(), 4200 * lines.length + 2500);
   },
   caught() {
     if (S.fadeTarget === 0) return; S.fadeTarget = 0; S.flash = 1; A.sting(1.2); say('Not yet.', 3000);
@@ -802,7 +867,9 @@ const ch4 = {
     // the Verdant: rooted among the beds until the first page is taken
     this.mon = makePlantMan(); this.mon.position.set(9, 0, -2.5); this.mon.rotation.y = -Math.PI / 2; world.add(this.mon);
     this.mon.userData.glow.intensity = .2; this.mon.userData.glow.distance = 3;
-    player.x = 0; player.z = 7.2; player.yaw = 0; player.pitch = 0; this.start = { x: 0, z: 7.2 };
+    player.x = 0; player.z = 7.2; player.yaw = 0; player.pitch = 0; this.start = { x: 0, z: 7.2 }; this.done = false;
+    addEcho('e8', -4, 5, 'A volunteer, half-rooted: "The loan is paid in full. I am the collateral."');
+    addEcho('e9', 5, -6, 'Mara Ilves, quieter now: "She is still small. Please water her first."');
     later(1200, () => say('A greenhouse. Every tank in it is full.'));
     later(7000, () => say('One of the plants by the east bed has a spine. Do not light it.', 5000));
   },
@@ -834,17 +901,182 @@ const ch4 = {
     animatePlantMan(m, dt, open, moving);
     if (S.sanity <= 0) { S.sanity = .5; this.caught(); }
     S.sanity = clamp(S.sanity, 0, 1); S.insanBase = this.notes * .05;
-    if (this.exitOpen && player.z < -9.6) { S.fadeTarget = 0; later(1200, () => showEnd('End of the demo. The Concord Program is still improving the city. The Verdant is still growing.')); }
+    if (this.exitOpen && player.z < -9.6 && !this.done) { this.done = true; S.fadeTarget = 0; later(1200, () => showEnd('End of the demo. The Concord Program is still improving the city. The Verdant is still growing.')); }
   },
 };
-const chapters = [ch0, ch1, ch2, ch3, ch4];
+
+/* ═════════════════════════ WAKING — THE OXYGEN TAX BUREAU (Papers, Please-style interlude) ═════════════════════════ */
+const TODAY = '14.03.47';
+const dnum = s => { const [d, m, y] = s.split('.').map(Number); return y * 10000 + m * 100 + d; };
+function textTex(w, h, fn) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); fn(g, w, h); const t = new T.CanvasTexture(c); t.userData = { c, g }; return t; }
+function makeCitizen(coat, o = {}) {
+  const g = new T.Group(), cm = mat({ color: coat }), dark = mat({ color: 0x1c1c1e }), skin = mat({ color: o.skin || 0xb89a80 });
+  cyl(.08, .09, .85, -.1, .42, 0, dark, 6, g); cyl(.08, .09, .85, .1, .42, 0, dark, 6, g);
+  cyl(.2, .27, .85, 0, 1.22, 0, cm, 9, g); sph(.14, 0, 1.78, 0, skin, g);
+  [-1, 1].forEach(s => { const a = cyl(.05, .045, .75, s * .26, 1.18, 0, cm, 6, g); a.rotation.z = s * .1; });
+  if (!o.noMask) { box(.17, .12, .08, 0, 1.72, .12, mat({ color: 0x2e2e30 }), false, g); const f = cyl(.05, .05, .09, 0, 1.68, .19, mat({ color: 0x6a6a70 }), 8, g); f.rotation.x = Math.PI / 2; }
+  cyl(.08, .08, .55, 0, 1.25, -.27, mat({ color: o.tank || 0x8a909a }), 8, g);
+  if (o.pin) sph(.035, .12, 1.45, .2, new T.MeshBasicMaterial({ color: 0xd8f070 }), g);
+  if (o.child) { const k = makeCitizen(0x6a5a7a, {}); k.scale.setScalar(.55); k.position.set(.45, 0, .1); g.add(k); }
+  return g;
+}
+const APPS = [
+  { name: 'Teo Barsk', id: 'BR-2217', exp: '02.09.47', L: 30, rName: 'Teo Barsk', rId: 'BR-2217', paid: 360, seal: true, coat: 0x5a4a3a, say: 'Morning, inspector. Same as every week.', res: 'He counts his breaths on the stairs so the meter does not run out.' },
+  { name: 'Ines Calder', id: 'CL-0912', exp: '11.03.47', L: 18, rName: 'Ines Calder', rId: 'CL-0912', paid: 216, seal: true, coat: 0x3a4a5a, say: 'The renewal office was closed. It is always closed.', res: 'She has been holding her breath in the lift to save litres.' },
+  { name: 'Pavel Roo', id: 'RO-4410', exp: '30.06.47', L: 22, rName: 'Pavol Roo', rId: 'RO-4410', paid: 264, seal: true, coat: 0x4a3a2a, say: 'That is a typo. The clerk spelled it wrong. Please.', res: "It is his brother's receipt. His brother is in a tank now." },
+  { name: 'Nils Andt', id: 'AN-7781', exp: '19.12.47', L: 24, rName: 'Nils Andt', rId: 'AN-7781', paid: 288, seal: true, coat: 0x2a3a2a, say: 'Quick one today, I hope.', res: 'He is relieved. He will not be relieved next month.' },
+  { name: 'Lene Okafor', id: 'OK-3302', exp: '08.08.47', L: 25, rName: 'Lene Okafor', rId: 'OK-3302', paid: 300, seal: true, coat: 0x6a3a3a, rate: 15.6, say: 'I paid this morning! The price was different this morning!', res: 'Inflation took a week of her breathing in four hours.' },
+  { name: 'Mara Ilves', id: 'IL-5120', exp: '01.05.47', L: 30, rName: 'Mara Ilves', rId: 'IL-5120', paid: 120, seal: true, loan: true, child: true, directive: true, coat: 0x4a4a5a, say: 'The Concord man said the loan covers both of us. My daughter and me.', res: 'She signed where the paper said VOLUNTEER. She thought it meant the hospital.' },
+  { name: 'Ruta Vey', id: 'VE-0001', exp: '27.10.47', L: 20, rName: 'Ruta Vey', rId: 'VE-0001', paid: 320, seal: false, mole: true, coat: 0x2a2a2a, say: 'Read the note. Please. Read the note.', res: 'She has seen the greenhouse from the inside, and she is still afraid of light.' },
+  { name: 'Kasia Dorn', id: 'DO-0088', exp: '31.12.49', L: 120, rName: 'Kasia Dorn', rId: 'DO-0088', paid: 2000, seal: true, pin: true, coat: 0xa08a5a, say: 'Do hurry. My driver is breathing on the meter.', res: 'She owns shares in Concord. Her garden is enormous, and it whispers.' },
+  { name: 'Josef Dunmore', id: 'DU-1938', exp: '15.04.47', L: 20, rName: 'Josef Dunmore', rId: 'DU-1938', paid: 312, seal: true, coat: 0x3a3a3a, rate: 18.9, say: 'Fifty years I have breathed this city. Fifty years.', res: 'He would sign anything to see his garden again. He does not know he would become it.' },
+  { name: 'Aurel Ressel', id: 'RS-0909', exp: '14.03.48', L: 42, rName: 'Aurel Ressel', rId: 'RS-0909', paid: 0, seal: true, loan: true, self: true, noMask: true, coat: 0x24262a, say: '…', res: 'The ringing is not in your ears. It never was. It is everyone you sent away, at once.' },
+];
+const chOffice = {
+  name: ['Waking', 'The Oxygen Tax Bureau'],
+  build() {
+    scene.fog.color.set(0x2a1f16); scene.fog.density = .045; scene.background.set(0x2a1f16);
+    amb.color.set(0x9a8a72); amb.intensity = .8; moon.intensity = 0;
+    S.seated = true; S.uiMode = true; S.flashlightOn = false; document.body.classList.add('office');
+    try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+    const wp = texWall('#55524a', '#4a4840'), W = (w, h, d, x, y, z) => box(w, h, d, x, y, z, tmat(wp, Math.max(w, d) / 2, h / 2), false);
+    // booth
+    slab(4, 3.4, 0, 0, .4, texNoise('#2a2622', 14)); slab(4, 3.4, 0, 2.8, .4, texNoise('#1e1c1a', 10));
+    W(.9, 2.8, .2, -1.55, 1.4, -1.3); W(.9, 2.8, .2, 1.55, 1.4, -1.3); W(2.2, 1.0, .2, 0, .5, -1.3); W(2.2, .6, .2, 0, 2.5, -1.3);
+    W(.2, 2.8, 3.4, -2.05, 1.4, .4); W(.2, 2.8, 3.4, 2.05, 1.4, .4); W(4.2, 2.8, .2, 0, 1.4, 2.1);
+    const glass = new T.Mesh(new T.PlaneGeometry(2.2, 1.2), new T.MeshLambertMaterial({ color: 0x9ab0a0, transparent: true, opacity: .12 })); glass.position.set(0, 1.6, -1.31); world.add(glass);
+    box(.3, .14, .02, 0, 1.08, -1.2, mat({ color: 0x777 }), false);
+    const desk = mat({ map: texWood(true) }); box(2.6, .07, .9, 0, .82, -.8, desk, false); box(2.6, .8, .06, 0, .4, -.36, desk, false);
+    cyl(.05, .06, .1, -.9, .91, -.7, mat({ color: 0x2a6a2a }), 8); cyl(.05, .06, .1, -.7, .91, -.7, mat({ color: 0x7a1a1a }), 8); cyl(.05, .06, .1, -.5, .91, -.7, mat({ color: 0x2a5a46 }), 8);
+    for (let i = 0; i < 5; i++) { const pp = box(.3, .005, .4, .5 + rnd(-.1, .1), .86 + i * .006, -.75 + rnd(-.05, .05), mat({ color: 0xe0d6bc }), false); pp.rotation.y = rnd(-.3, .3); }
+    pointLight(0xffd8a0, 1.2, 5, .6, 1.6, -.4);
+    // rate board above the window + posters
+    this.board = textTex(512, 128, () => {}); this.drawBoard(12.0, false);
+    const bd = new T.Mesh(new T.PlaneGeometry(1.6, .4), new T.MeshBasicMaterial({ map: this.board })); bd.position.set(0, 2.45, -1.19); world.add(bd);
+    const poster = (txt, sub, col, x, ry) => { const tx = textTex(256, 360, (g, w, h) => { g.fillStyle = col; g.fillRect(0, 0, w, h); g.fillStyle = '#f2ecd8'; g.font = 'bold 30px Georgia'; txt.forEach((l, i) => g.fillText(l, 18, 70 + i * 38)); g.font = '15px Georgia'; sub.forEach((l, i) => g.fillText(l, 18, 270 + i * 20)); }); const m = new T.Mesh(new T.PlaneGeometry(.75, 1.05), new T.MeshLambertMaterial({ map: tx })); m.position.set(x, 1.65, .2); m.rotation.y = ry; world.add(m); };
+    poster(['CONCORD', 'GREENING', 'LOANS'], ['Grow your future.', '0% interest*', '*collateral: biological estate', 'of the borrower.'], '#2f5a36', -1.94, Math.PI / 2);
+    poster(['OXYGEN', 'IS A', 'PRIVILEGE'], ['Pay your share.', 'Report unmetered breathing.', '— Bureau of Breath'], '#5a2a22', 1.94, -Math.PI / 2);
+    // the street outside
+    slab(40, 30, 0, -.02, -16, texNoise('#2a2724', 18), 3);
+    const winTex = textTex(128, 256, (g, w, h) => { g.fillStyle = '#18140f'; g.fillRect(0, 0, w, h); for (let y = 8; y < h; y += 22) for (let x = 8; x < w; x += 20) { g.fillStyle = Math.random() < .3 ? '#d8a050' : '#24201a'; g.fillRect(x, y, 10, 12); } });
+    [[-9, -10], [-10, -22], [9, -12], [11, -24], [-2, -30], [5, -32]].forEach(([x, z]) => box(6, 14, 6, x, 7, z, mat({ map: winTex, emissive: 0x2a1c0a, emissiveMap: winTex }), false));
+    const bb = textTex(512, 192, (g, w, h) => { g.fillStyle = '#c8b070'; g.fillRect(0, 0, w, h); g.fillStyle = '#2a1a10'; g.font = 'bold 52px Georgia'; g.fillText('BREATHE RESPONSIBLY', 18, 80); g.font = '26px Georgia'; g.fillText('Every litre counted. Every citizen improved.', 22, 140); });
+    const bbm = new T.Mesh(new T.PlaneGeometry(9, 3.4), new T.MeshBasicMaterial({ map: bb, color: 0x9a8a70 })); bbm.position.set(0, 7, -27); world.add(bbm);
+    pointLight(0xffa060, 1.6, 16, -3, 4, -6); pointLight(0xffa060, 1.3, 16, 3.5, 4, -13); pointLight(0xffd0a0, 1.3, 4, 0, 2.3, -2.9);
+    box(.06, 1, 8, 1.3, .5, -7, mat({ color: 0x555 }), false);
+    // citizens
+    this.apps = APPS.map((a, i) => Object.assign({}, a, { g: null, dest: null }));
+    this.apps.forEach((a, i) => { a.g = makeCitizen(a.coat, a); world.add(a.g); const q = this.queuePos(i, 0); a.g.position.set(q.x, 0, q.z); a.dest = q; });
+    this.cur = -1; this.rate = 12.0; this.directive = false; this.correct = 0; this.cit = 0; this.ready = false; this.finished = false;
+    player.x = 0; player.z = .45; player.yaw = 0; player.pitch = -.1;
+    $('office').classList.remove('hidden'); $('bRefer').style.display = 'none'; $('ofDocs').innerHTML = ''; this.renderRules(); this.hud();
+    later(800, () => say('Booth 9. Bureau of Breath. Your ears are ringing again.', 4500));
+    later(3200, () => this.next());
+  },
+  queuePos(i, cur) { const k = i - cur - 1; return { x: 2.1 + k * .35, z: -3.2 - k * 1.25 }; },
+  drawBoard(rate, alert) {
+    const { g } = this.board.userData; g.fillStyle = alert ? '#3a0a08' : '#0c0a08'; g.fillRect(0, 0, 512, 128);
+    g.fillStyle = alert ? '#ff6a4a' : '#ffb040'; g.font = 'bold 30px Courier New'; g.fillText('O2 TAX RATE', 20, 44); g.font = 'bold 54px Courier New'; g.fillText(rate.toFixed(1) + ' ₵/L', 20, 106);
+    g.font = '20px Courier New'; g.fillText(alert ? 'REVISED' : 'TODAY ' + TODAY, 330, 44); this.board.needsUpdate = true;
+  },
+  renderRules() {
+    $('ofRules').innerHTML = `<b>BUREAU OF BREATH — RULES</b><ol>
+      <li>Permit must not be expired (today ${TODAY}).</li><li>Name and ID must match on permit and receipt.</li>
+      <li>Permit must carry the Bureau seal.</li><li>Paid ≥ litres × current rate (<b>${this.rate.toFixed(1)}</b> ₵/L).</li>
+      ${this.directive ? '<li class="new"><b>Directive 7-C:</b> holders of a Concord Greening Loan must be <b>REFERRED</b>. Do not approve. Do not deny.</li>' : ''}</ol>
+      <small>Keys: 1 approve · 2 deny${this.directive ? ' · 3 refer' : ''} · hold R to listen</small>`;
+  },
+  hud() { $('ofTop').innerHTML = `<span>Booth 9</span><span>${TODAY}</span><span>Rate <b>${this.rate.toFixed(1)} ₵/L</b></span><span>Applicant ${Math.max(0, this.cur + 1)}/${APPS.length}</span><span>Citations ${this.cit}</span>`; },
+  msg(t, bad) { const el = $('ofMsg'); el.textContent = t; el.className = bad ? 'bad on' : 'on'; clearTimeout(this.msgT); this.msgT = setTimeout(() => el.className = '', 5200); },
+  docs(a) {
+    const seal = a.seal ? '<span class="seal">B</span>' : '<span class="seal none"></span>';
+    let h = `<div class="doc permit"><h4>OXYGEN PERMIT</h4>Name: <b>${a.name}</b><br>ID: ${a.id}<br>Quota: ${a.L} L / week<br>Expires: <b>${a.exp}</b><br>Seal: ${seal}${a.pin ? '<br><i>✦ Concord shareholder</i>' : ''}</div>`;
+    h += `<div class="doc receipt"><h4>O2 TAX RECEIPT</h4>Name: <b>${a.rName}</b><br>ID: ${a.rId}<br>Litres: ${a.L}<br>Paid: <b>${a.paid.toFixed(2)} ₵</b><br><small>Rate at purchase: ${a.rate ? (a.rate === 15.6 ? '12.0' : '15.6') : this.rate.toFixed(1)}</small></div>`;
+    if (a.loan) h += `<div class="doc loan"><h4>CONCORD GREENING LOAN</h4>Borrower: <b>${a.name}</b><br>Amount: ${a.self ? '1 200' : '400'} ₵<br>Interest: 0%*<br><small>*The undersigned pledges, as collateral, the biological estate of the borrower and dependants.</small><br>Signed: <i>${a.name}</i> — VOLUNTEER ✓${a.self ? '<br><b>Dated: 15.03.47</b>' : ''}</div>`;
+    if (a.mole) h += `<div class="doc note">Inspector — the seal is missing because the Bureau stopped issuing them to people like me. Concord is not growing food from volunteers. It is growing volunteers into food. Let me through.<br>— M</div>`;
+    return h;
+  },
+  next() {
+    this.cur++; this.hud();
+    if (this.cur >= this.apps.length) return;
+    const a = this.apps[this.cur];
+    this.apps.forEach((b, i) => { if (i > this.cur) b.dest = this.queuePos(i, this.cur); });
+    a.dest = { x: 0, z: -2.05 };
+    if (a.rate) { this.rate = a.rate; this.drawBoard(this.rate, true); setTimeout(() => this.drawBoard(this.rate, false), 2500); A.tone(880, .25, .08, 'square'); A.tone(660, .35, .08, 'square', .3); this.msg(`RATE REVISED → ${this.rate.toFixed(1)} ₵/L (Inflation Adjustment Act)`); this.renderRules(); }
+    if (a.directive) { this.directive = true; $('bRefer').style.display = ''; this.renderRules(); later(1200, () => this.msg('NEW DIRECTIVE 7-C: Greening Loan holders are to be referred to Concord.')); }
+    later(2300, () => {
+      if (S.chapter !== 5) return;
+      $('ofDocs').innerHTML = this.docs(a); this.ready = true; A.burst(3000, 2, .08, .08);
+      if (a.self) { S.ring = .03; S.spike = .5; say('He is not wearing a mask. He has your face. Your ears are screaming.', 5500); }
+      else say(`${a.name}: "${a.say}"`, 5000);
+    });
+  },
+  expected(a) {
+    if (this.directive && a.loan) return 'refer';
+    return this.violations(a).length ? 'deny' : 'approve';
+  },
+  violations(a) {
+    const v = [];
+    if (dnum(a.exp) < dnum(TODAY)) v.push('the permit was expired');
+    if (a.name !== a.rName) v.push('the names did not match');
+    if (a.id !== a.rId) v.push('the IDs did not match');
+    if (!a.seal) v.push('the permit had no Bureau seal');
+    if (a.paid + 1e-6 < a.L * this.rate) v.push(`the payment was short (${a.paid} < ${(a.L * this.rate).toFixed(1)})`);
+    return v;
+  },
+  decide(kind) {
+    if (!this.ready || S.chapter !== 5) return; this.ready = false;
+    const a = this.apps[this.cur], exp = this.expected(a), ok = kind === exp;
+    const st = document.createElement('div'); st.className = 'stamp ' + kind; st.textContent = { approve: 'APPROVED', deny: 'DENIED', refer: 'REFERRED' }[kind]; $('ofDocs').appendChild(st);
+    A.thump(.9); A.burst(400, 1, .15, .4, 'lowpass');
+    if (ok) this.correct++;
+    else {
+      this.cit++; S.citations++;
+      const why = exp === 'refer' ? 'Directive 7-C: Greening Loan holders must be referred.' : exp === 'approve' ? (kind === 'refer' ? 'Referral without a Greening Loan contract.' : 'Wrongful denial: the documents were in order.') : (kind === 'refer' ? 'Referral without a Greening Loan contract.' : 'Approved although ' + this.violations(a)[0] + '.');
+      later(700, () => this.msg('CITATION — ' + why, true));
+    }
+    if (a.mole && kind === 'approve') { S.moleHelped = true; later(2000, () => say('She slips a seed through the slot. It is warm, and it hums at your frequency.', 5000)); }
+    S.ring = kind === 'approve' ? .008 : .024; if (kind !== 'approve') A.whisperBurst(.06);
+    later(1300, () => say('You hear it ringing: ' + a.res, 6500));
+    a.dest = kind === 'approve' ? { x: -6, z: -4 } : kind === 'refer' ? { x: -2.5, z: -12 } : { x: 6, z: -7 };
+    if (kind === 'refer') { a.referred = true; later(1500, () => { S.flash = .15; }); }
+    this.hud();
+    if (a.self) { later(5200, () => this.finish()); return; }
+    later(3600, () => { if (S.chapter === 5) { $('ofDocs').innerHTML = ''; this.next(); } });
+  },
+  finish() {
+    if (this.finished) return; this.finished = true;
+    S.ring = .035; S.flash = .6; A.sting(.9);
+    const wage = 400 + this.correct * 10 - this.cit * 15, o2 = 42 * this.rate, rent = 120, bal = wage - o2 - rent;
+    $('sumBody').innerHTML = `Processed ${APPS.length} · correct ${this.correct} · citations ${this.cit}<br><br>
+      Wage (400 + 10 per correct − 15 per citation): <b>${wage.toFixed(1)} ₵</b><br>
+      Your oxygen tax (you and your mother, 42 L × ${this.rate.toFixed(1)}): <b>−${o2.toFixed(1)} ₵</b><br>
+      Rent: <b>−${rent} ₵</b><br><br>Balance: <b class="neg">${bal.toFixed(1)} ₵</b><br><br>
+      Under your door: a Concord Greening Loan offer. Pre-filled. Pre-signed.<br><i>Volunteer: A. Ressel.</i>${S.moleHelped ? '<br><br>In your pocket, the seed is still humming.' : ''}`;
+    later(1800, () => { $('office').classList.add('hidden'); $('ofSummary').classList.remove('hidden'); });
+  },
+  leave() {
+    $('ofSummary').classList.add('hidden'); S.seated = false; S.uiMode = false; S.flashlightOn = true; document.body.classList.remove('office');
+    goChapter(2); lockPointer();
+  },
+  update(dt) {
+    S.wind = .05; S.tension = .1; S.insanBase = .05 + this.cit * .04;
+    this.apps.forEach(a => {
+      if (!a.g || !a.dest) return; const dx = a.dest.x - a.g.position.x, dz = a.dest.z - a.g.position.z, d = Math.hypot(dx, dz);
+      if (d > .03) { const sp = Math.min(d, 1.3 * dt); a.g.position.x += dx / d * sp; a.g.position.z += dz / d * sp; a.g.rotation.y = Math.atan2(dx, dz); a.g.position.y = Math.abs(Math.sin(S.time * 8)) * .03; }
+      else { a.g.position.y = 0; a.g.rotation.y = lerp(a.g.rotation.y, 0, dt * 3); if (a.referred) a.g.visible = false; }
+    });
+  },
+};
+const chapters = [ch0, ch1, ch2, ch3, ch4, chOffice];
 
 function goChapter(i) {
   S.chapter = i; currentCh = chapters[i];
   clearWorld(); watcher.g = null; watcher.active = false; ghost.g && (ghost.g.visible = false);
   S.scrape = 0; S.wading = false; S.spike = 0; S.input = true; S.fadeTarget = 1; S.sanity = Math.max(S.sanity, .7); S.flash = 0;
   A.stopBox(); torch.intensity = 1.7; lamp.intensity = 0; lamp.distance = 12;
-  currentCh.build(); card(`Chapter ${currentCh.name[0]}`, currentCh.name[1]);
+  if (i !== 5) { $('office').classList.add('hidden'); S.seated = false; S.uiMode = false; document.body.classList.remove('office'); }
+  currentCh.build(); card(/^[IVX]+$/.test(currentCh.name[0]) ? `Chapter ${currentCh.name[0]}` : currentCh.name[0], currentCh.name[1]);
   const t = (s => s); if (location.hash !== '#ch=' + i) try { history.replaceState(null, '', '#ch=' + i); } catch (e) { /* ignore */ }
 }
 
@@ -853,13 +1085,14 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return; keys[e.code] = true;
   if (e.code === 'KeyF' && S.running) { S.flashlightOn = !S.flashlightOn; A.burst(2000, 5, .04, .1); }
   if (e.code === 'KeyE' && S.running && S.input) useInteract();
+  if (S.chapter === 5 && S.running) { if (e.code === 'Digit1') chOffice.decide('approve'); if (e.code === 'Digit2') chOffice.decide('deny'); if (e.code === 'Digit3' && chOffice.directive) chOffice.decide('refer'); }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 let locked = false;
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  if (!locked && S.running && !S.endShown) { S.paused = true; $('pause').classList.remove('hidden'); }
+  if (!locked && S.running && !S.endShown && !S.uiMode) { S.paused = true; $('pause').classList.remove('hidden'); }
 });
 document.addEventListener('mousemove', e => {
   if (!S.running || S.paused || !S.input) return;
@@ -868,13 +1101,19 @@ document.addEventListener('mousemove', e => {
 function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
 function startGame(ch = 0) {
   A.init(); $('menu').classList.add('hidden'); $('pause').classList.add('hidden'); $('end').classList.add('hidden'); S.endShown = false;
-  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; goChapter(ch); } S.paused = false; lockPointer();
+  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; S.heard = new Set(); S.moleHelped = false; S.citations = 0; goChapter(ch); } S.paused = false; if (!S.uiMode) lockPointer();
 }
 $('menu').addEventListener('click', () => startGame(0));
 $('demoBtn').addEventListener('click', e => { e.stopPropagation(); startGame(4); });
+$('officeBtn').addEventListener('click', e => { e.stopPropagation(); startGame(5); });
+$('rerollBtn').addEventListener('click', e => { e.stopPropagation(); newSession(); });
+$('bApprove').addEventListener('click', () => chOffice.decide('approve'));
+$('bDeny').addEventListener('click', () => chOffice.decide('deny'));
+$('bRefer').addEventListener('click', () => chOffice.decide('refer'));
+$('sleepBtn').addEventListener('click', () => chOffice.leave());
 $('pause').addEventListener('click', () => { A.init(); $('pause').classList.add('hidden'); S.paused = false; lockPointer(); });
 $('end').addEventListener('click', () => { const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
-function showEnd(txt) { S.endShown = true; $('endtxt').textContent = txt || 'The dream remembers you. It will be here when you close your eyes.'; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
+function showEnd(txt) { S.endShown = true; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
 
 function useInteract() {
   const it = target; if (it) it.onUse();
@@ -883,7 +1122,7 @@ let target = null;
 function findTarget() {
   const f = fwdVec(); let best = null, bd = .9;
   for (const it of interactables) {
-    if (!it.on) continue;
+    if (!it.on || (it.cond && !it.cond())) continue;
     const o = it.obj.getWorldPosition ? it.obj.getWorldPosition(new T.Vector3()) : it.obj.position;
     const dx = o.x - player.x, dy = o.y - camera.position.y, dz = o.z - player.z, d = Math.hypot(dx, dy, dz);
     if (d > it.r) continue; const dot = (dx * f.x + dy * f.y + dz * f.z) / d;
@@ -896,39 +1135,46 @@ function findTarget() {
 function movePlayer(dt) {
   let f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), s = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
   player.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 1.9 * dt;
-  if (!S.input) { f = s = 0; }
+  if (!S.input || S.seated) { f = s = 0; }
+  if (S.seated) { player.yaw = clamp(player.yaw, -1.1, 1.1); }
   const len = Math.hypot(f, s) || 1; f /= len; s /= len;
-  let sp = (keys.ShiftLeft || keys.ShiftRight ? 4.3 : 2.5) * (S.wading ? .72 : 1) * (S.eye > .5 ? .3 : 1);
+  let sp = (keys.ShiftLeft || keys.ShiftRight ? 4.3 : 2.5) * (S.wading ? .72 : 1) * (S.eye > .5 ? .3 : 1) * (session.mods.heavy ? .8 : 1);
   const tx = (-Math.sin(player.yaw) * f + Math.cos(player.yaw) * s) * sp, tz = (-Math.cos(player.yaw) * f - Math.sin(player.yaw) * s) * sp;
   player.vx = lerp(player.vx, tx, clamp(dt * 12, 0, 1)); player.vz = lerp(player.vz, tz, clamp(dt * 12, 0, 1));
   player.x += player.vx * dt; player.z += player.vz * dt; resolve(player, player.r);
   const v = Math.hypot(player.vx, player.vz);
   player.bob += v * dt * 2.3; const ph = Math.sin(player.bob);
-  if (v > .5 && ph < 0 && player.lastStep >= 0) A.step(S.chapter === 2 ? 'water' : S.chapter === 3 ? 'tile' : 'wood');
+  if (v > .5 && ph < 0 && player.lastStep >= 0) { const k = S.chapter === 2 ? 'water' : S.chapter === 3 ? 'tile' : 'wood'; A.step(k); if (session.mods.echo) setTimeout(() => A.step(k), 280); }
   player.lastStep = ph;
-  camera.position.set(player.x, 1.62 + ph * .035 * Math.min(1, v / 2.5) - S.eye * .15, player.z);
+  camera.position.set(player.x, (S.seated ? 1.25 : session.mods.child ? 1.12 : 1.62) + ph * .035 * Math.min(1, v / 2.5) - S.eye * .15, player.z);
 }
 function update(dt) {
   S.time += dt;
   S.spike = Math.max(0, S.spike - dt * .5); S.flash = Math.max(0, S.flash - dt * 1.6); S.tension = Math.max(0, S.tension - dt * .5);
+  S.listen = lerp(S.listen, keys.KeyR && S.running ? 1 : 0, clamp(dt * 5, 0, 1)); S.ring = Math.max(0, S.ring - dt * .006);
+  if (S.listen > .5 && S.chapter !== 5) S.sanity = Math.max(0, S.sanity - dt * .008);
   const eyeT = keys.KeyQ && S.input ? 1 : 0; S.eye = lerp(S.eye, eyeT, clamp(dt * 9, 0, 1));
   S.fade = lerp(S.fade, S.fadeTarget, clamp(dt * (S.fadeTarget ? 1.5 : 4), 0, 1));
   if (S.running) movePlayer(dt); else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
   if (currentCh) currentCh.update(dt);
   updaters.forEach(u => u(dt));
-  updateGhost(dt);
+  updateGhost(dt); updateEchoes(dt);
+  if (session.mods.breath && S.chapter !== 5) { const b = Math.sin(S.time * .9); world.scale.set(1 + b * .012, 1 + Math.sin(S.time * .9 + 1) * .025, 1 + b * .012); } else world.scale.set(1, 1, 1);
   const insan = clamp((1 - S.sanity) * .75 + S.insanBase + S.spike, 0, 1);
   S.insan = insan;
   // camera feel
-  camera.rotation.set(player.pitch, player.yaw, Math.sin(S.time * .7) * insan * .035);
-  camera.fov = 72 + Math.sin(S.time * .5) * insan * 6 + S.spike * 6; camera.updateProjectionMatrix();
+  camera.rotation.set(player.pitch, player.yaw, Math.sin(S.time * .7) * insan * .035 + (session.mods.tilt ? session.roll : 0));
+  camera.fov = (session.mods.long ? 88 : 72) + Math.sin(S.time * .5) * insan * 6 + S.spike * 6; camera.updateProjectionMatrix();
   torch.intensity = S.flashlightOn ? 1.7 * (insan > .4 && Math.random() < insan * .08 ? .1 : 1) : 0;
-  torch.angle = .5 - insan * .12;
+  torch.angle = .5 - insan * .12; if (session.mods.pulse) torch.intensity *= .72 + .28 * Math.sin(S.time * 5.3);
+  const U = post.mat.uniforms; U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = session.mods.hue ? S.time * .05 : 0;
+  U.tint.value.set(...(session.mods.red ? [1.3, .72, .66] : [1, 1, 1]));
+  if (session.mods.neg) { session.negT -= dt; U.invert.value = session.negT < 0 ? 1 : 0; if (session.negT < -.35) { session.negT = rnd(14, 30); } } else U.invert.value = 0;
   target = S.running && S.input ? findTarget() : null;
   const pr = $('prompt'); if (target) { pr.textContent = 'E — ' + target.label; pr.classList.add('on'); } else pr.classList.remove('on');
   const san = $('san').firstElementChild; san.style.width = (S.sanity * 100).toFixed(0) + '%'; san.style.background = S.sanity > .5 ? '#b9b3a4' : S.sanity > .25 ? '#b08a4a' : '#8a1c1c';
   post.mat.uniforms.time.value = S.time; post.mat.uniforms.insan.value = insan; post.mat.uniforms.flash.value = S.flash; post.mat.uniforms.eye.value = S.eye; post.mat.uniforms.fade.value = S.fade;
-  if (S.running) A.update(dt, { insan, scrape: S.scrape * (S.running ? 1 : 0), wind: S.wind, tension: clamp(S.tension + S.spike * .5, 0, 1) });
+  if (S.running) A.update(dt, { listen: S.listen, ring: S.ring, insan, scrape: S.scrape * (S.running ? 1 : 0), wind: S.wind, tension: clamp(S.tension + S.spike * .5, 0, 1) });
   // the Watcher's scratching only matters while the screen is not black
 }
 let last = performance.now();
@@ -945,6 +1191,6 @@ S.chapter = 0; currentCh = ch0; ch0.build(); S.fade = 1; S.chapter = -1; $('card
 requestAnimationFrame(frame);
 
 // debug / test hooks
-window.__dream = { ch4, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
+window.__dream = { ch4, chOffice, session, newSession, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
 const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); }
 })();
