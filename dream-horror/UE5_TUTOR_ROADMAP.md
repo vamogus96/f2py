@@ -153,3 +153,11 @@ Prototype: `day.js`. A day is a **budget of two resources** (time and energy) sp
 - Model each activity as a `UDataAsset` or a data-table row (`FActivityRow`: `Location`, `Minutes`, `Energy`, `Pay`, `RequiredSkill`). Designers can add jobs without code.
 - Keep the simulation in a `UGameInstanceSubsystem` (`UDayPlannerSubsystem`) and the UI in UMG. The UI reads state via delegates, so it never polls.
 - Mini-games (PCB routing, lathe, cooking) are small self-contained classes that return a **result struct** (`FMinigameResult { float Quality; bool bSuccess; }`) to the planner. Write them so they can be unit-tested without the UI.
+
+## Bonus lesson — the soldering mini-game (a small state machine)
+Prototype: `gameSolder` and `lessonSolder` in `day.js`.
+- **State:** `Temp` rises while the iron is held, falls otherwise; `Flow` rises only while feeding inside the temperature band. A joint ends when `Flow >= 1` and the player releases, when it overflows (blob), burns (`Burn >= 1.2`) or is released cold. Model it as an enum plus `Tick(DeltaTime)`: `enum class EJointResult { Good, Cold, Burnt, Blob };`
+- **Judging:** the result comes from three accumulators (`Cold`, `Burn`, `Flow`), never from a single timer. That is easier to tune in a `UDataAsset` (`BandMin`, `BandMax`, `FlowRate`).
+- **Coaching:** a pure function `FText GetHint(const FSolderState&)` picks the hint, so the tutorial and the paid job share one mini-game with `bShowHints` switched on or off.
+- **Tutorial flow:** a list of steps (`TArray<FLessonStep>`), each with a pass condition. Retry on fail, award the certificate once (a `SaveGame` flag).
+- *Homework:* add a *bridge* mechanic: adjacent pads short out if both get a blob. Expose the tolerances to designers with `UPROPERTY(EditAnywhere, meta=(ClampMin=0))`.

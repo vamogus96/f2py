@@ -39,7 +39,9 @@ They now live in **Poors**, a city bolted to the twilight boundary of **Fool Nig
   - **The bus:** departures every 20 min, fares by distance, strikes, fines. Or walk.
   - **Pharmacy and the alley:** licensed lung medicine, tinnitus drops, counterfeit medicine (40% chalk), *Wake* stimulants, *Hush* sedatives that silence tonight's echoes.
   - **Cooking:** a heat-control mini-game turns cheap ingredients (or the free, eerie Concord greens) into meals that cover the family's food.
-  - **PCB bench:** route traces without crossing. **Lathe:** turn a shaft to size within tolerance. Both give XP and spare parts.
+  - **PCB bench:** route traces without crossing them, then **solder the joints**. Hold **Space** to heat the pad (keep the gauge in the green band), hold **F** to feed solder, release when the flow bar is full. Good joints pay more; a cold joint (fed on a cold pad), a burnt pad or a blob costs you.
+  - **Lathe:** turn a shaft to size within tolerance. PCB and lathe both give XP and spare parts.
+  - **PCB & soldering tutorial** (menu button, or the Brass Dock Workshop): a four-step guided lesson with a coach under the title: route a trace, the five rules of a good joint, one joint, a row of four pins, then an **exam without hints**. Passing earns the *Bench Basic* certificate (+2 PCB XP: PCB level 1, which unlocks PCB orders).
   - At 22:00 the money goes to the **household table** (one day of the family's costs), then Aurel dreams.
 - **Dream: the Captain's Watch.** First-person on the deck of the void-galleon *Lullaby* in battle: fire the port cannons until the shield bursts, grapple the raider, cross the bridge, take the logbook.
 - **Void battle (solo or online).** Top-down space naval combat at the Poors boundary. Pick **Poors Free Fleet** (pirates, salvage share) or **Concord Navy** (mercenary contract). Broadsides, boost, asteroids, a central station. **Cripple a ship and board it** (hold F). First fleet to 15 kills wins; the payout goes to the family purse. Boards and barrels you crafted give your ship faster reloads, tighter spread, more damage.

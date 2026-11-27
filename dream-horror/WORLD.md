@@ -22,7 +22,7 @@ The Ressels were engineers. Now:
 - **The bus:** timetable every 20 minutes, fares by distance, strikes, inspectors who fine you for unmetered coughing.
 - **Medicine and drugs:** the licensed pharmacy (Ilse's lung medicine), tinnitus drops, and the alley: counterfeit medicine (40% chalk), *Wake* (stimulant) and *Hush* (sedative, dreamless: you will not hear the echoes).
 - **Cooking:** the cheapest way to feed a family. Synth-rice, algae, vat-protein, or the free **Concord greens**, which taste like someone else's garden.
-- **The PCB bench and the lathe:** skills for work, and parts for **your ship**: fire-control boards and barrels.
+- **The PCB bench and the lathe:** skills for work, and parts for **your ship**: fire-control boards and barrels. Before the Purge, Aurel's mother Ilse taught him to solder at the kitchen table. The tutorial is her lesson as the foreman repeats it: *heat both, feed the joint, solder away first, then the iron. A cold joint passes the bench test and fails in the field.*
 
 At night the budget decides who breathes. Then Aurel dreams.
 
