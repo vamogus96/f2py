@@ -38,6 +38,15 @@ st.textContent = `
 .cell{width:44px;height:44px;background:#0e2a1c;border:1px solid #1c5a3a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#041;user-select:none}
 .cell.pad{border-radius:50%;border:3px solid #fff8}
 #miniBox canvas#lathe{position:static;inset:auto;width:560px;height:230px;max-width:100%;display:block;margin:0 auto;background:#0c0a0b;border:1px solid #3a2c26;cursor:crosshair}
+.sboard{display:flex;gap:14px;justify-content:center;margin:12px 0}
+.spad{width:58px;height:58px;border-radius:50%;background:#b58a3a;border:3px solid #6a4a1a;position:relative;display:flex;align-items:center;justify-content:center;transition:box-shadow .1s}
+.spad b{width:8px;height:34px;background:#8a8a90;border-radius:3px;display:block}
+.spad.now{outline:3px solid #9fe0ff;outline-offset:3px}
+.spad.good{background:radial-gradient(circle at 35% 30%,#fff,#c8d0d8 45%,#7a828c);border-color:#aab}
+.spad.cold{background:radial-gradient(circle,#6a6a62,#4a4a44);border-color:#333;filter:contrast(1.2)}
+.spad.burnt{background:#2a1a10;border-color:#000}
+.spad.blob{background:radial-gradient(circle at 35% 30%,#fff,#aeb6be 50%,#6a727c);border-color:#aab;transform:scale(1.35)}
+.sg{display:flex;gap:22px;align-items:center;justify-content:center}.sg .heat{width:40px;height:150px}.sg>div:last-child{min-width:220px;text-align:left}
 .heat{width:46px;height:200px;background:#1a1210;border:1px solid #6a5a44;position:relative;margin:8px auto}
 .heat .zone{position:absolute;left:0;right:0;background:#3f8a4a88;border-top:1px solid #9f9;border-bottom:1px solid #9f9}
 .heat .fill{position:absolute;left:4px;right:4px;bottom:0;background:linear-gradient(#ff5a2a,#ffb040);}
@@ -74,15 +83,15 @@ const BUS_LINES = ['4X', '9', '12-Night', '7B'];
 /* ───────────── state ───────────── */
 let D = null;
 const SAVE = 'hl-save-v1';
-function persist() { try { localStorage.setItem(SAVE, JSON.stringify({ xp: D.xp, parts: D.parts, n: D.n, pirate: !!S.pirateSeen })); } catch (e) { /* private mode */ } }
+function persist() { try { localStorage.setItem(SAVE, JSON.stringify({ xp: D.xp, parts: D.parts, n: D.n, pirate: !!S.pirateSeen, tut: !!(D && D.tut) })); } catch (e) { /* private mode */ } }
 function newDay(n, keep) {
   const prev = keep || {};
   D = {
-    n, t: 360, money: S.carryMoney != null ? S.carryMoney : 160, energy: 100, stress: 10, loc: 'home', tin: prev.tin || 40, stim: 0, hush: false,
+    n, t: 360, money: S.carryMoney != null ? S.carryMoney : 160, energy: 100, stress: 10, loc: 'home', tin: prev.tin || 40, tut: !!prev.tut, stim: 0, hush: false,
     xp: prev.xp || { pcb: 0, lathe: 0 }, parts: prev.parts || { board: 0, barrel: 0 }, ing: prev.ing || { rice: 1, algae: 0, protein: 0 }, meals: 0, meds: { real: 0, fake: 0 }, chalk: false,
     strike: Math.random() < .4 ? [600 + ((Math.random() * 3) | 0) * 30, 780] : null, log: [], earned: 0, spent: 0, jobs: 0, ended: false,
   };
-  if (n === 1 && !keep) { try { const sv = JSON.parse(localStorage.getItem(SAVE) || 'null'); if (sv) { D.xp = sv.xp || D.xp; D.parts = sv.parts || D.parts; if (sv.pirate) S.pirateSeen = true; } } catch (e) { /* ignore */ } }
+  if (n === 1 && !keep) { try { const sv = JSON.parse(localStorage.getItem(SAVE) || 'null'); if (sv) { D.xp = sv.xp || D.xp; D.parts = sv.parts || D.parts; if (sv.pirate) S.pirateSeen = true; D.tut = !!sv.tut; } } catch (e) { /* ignore */ } }
   S.day = D; log(`Day ${n}. 06:00. The meter is already running.`);
   if (D.strike) log(`Radio: transit workers threaten a strike around ${fmt(D.strike[0])}.`);
 }
@@ -98,6 +107,7 @@ const tired = (need = 15) => { if (D.energy < need) { log(`Too tired (${Math.rou
 const strikeNow = t => D.strike && t >= D.strike[0] && t < D.strike[1];
 
 /* ───────────── bus / walking ───────────── */
+function arrive(to) { if (to === 'shop' && !D.tut) log('Foreman: "PCB orders need a steady hand and a certificate. There is a free soldering tutorial at the bench."'); }
 function ride(to) {
   const from = D.loc, dep = Math.ceil(D.t / 20) * 20;
   if (strikeNow(dep)) { log(`No buses: the strike runs until ${fmt(D.strike[1])}. Walk, or wait.`); return render(); }
@@ -107,16 +117,16 @@ function ride(to) {
   if (ev < .18) { spend(Math.min(5, D.money)); extra = ' A fare inspector fined you 5 ₵ for an unmetered cough.'; }
   else if (ev < .32) extra = ' Two Free Fleet gunners argue about a Navy contract. You listen.';
   else if (ev < .42) { D.stress = clamp(D.stress - 8, 0, 100); extra = ' A child hums the lullaby on the seat in front of you.'; }
-  D.t = dep; log(`Waited ${wait} min for the ${line}, rode ${busTime(from, to)} min (${fare} ₵).${extra}`); D.loc = to; adv(busTime(from, to), 2);
+  D.t = dep; log(`Waited ${wait} min for the ${line}, rode ${busTime(from, to)} min (${fare} ₵).${extra}`); D.loc = to; arrive(to); adv(busTime(from, to), 2);
   render();
 }
-function walk(to) { const m = walkTime(D.loc, to); log(`Walked ${m} min to ${LOCS[to].n}.`); D.loc = to; adv(m, m * .15); render(); }
+function walk(to) { const m = walkTime(D.loc, to); log(`Walked ${m} min to ${LOCS[to].n}.`); D.loc = to; arrive(to); adv(m, m * .15); render(); }
 
 /* ───────────── mini-game plumbing ───────────── */
 let miniTimer = null, miniKey = null;
 function miniOpen(html) { $('miniBox').innerHTML = html; mini.classList.remove('hidden'); }
 function miniClose() { clearInterval(miniTimer); miniTimer = null; if (miniKey) { document.removeEventListener('keydown', miniKey, true); document.removeEventListener('keyup', miniKey, true); miniKey = null; } mini.classList.add('hidden'); }
-function onKeys(fn) { if (miniKey) document.removeEventListener('keydown', miniKey, true); miniKey = e => { if (!mini.classList.contains('hidden')) { fn(e); if (/Digit|Space|Arrow|KeyW|KeyS/.test(e.code)) e.stopPropagation(); } }; document.addEventListener('keydown', miniKey, true); document.addEventListener('keyup', miniKey, true); }
+function onKeys(fn) { if (miniKey) document.removeEventListener('keydown', miniKey, true); miniKey = e => { if (!mini.classList.contains('hidden')) { fn(e); if (/Digit|Space|Arrow|KeyW|KeyS|KeyF/.test(e.code)) e.stopPropagation(); } }; document.addEventListener('keydown', miniKey, true); document.addEventListener('keyup', miniKey, true); }
 
 /* — low-level job: sort scrap — */
 function gameSort(done) {
@@ -154,7 +164,7 @@ function genPCB(G, nets) {
   return [{ a: 0, b: 5 }, { a: 6, b: 11 }, { a: 12, b: 17 }];
 }
 const NETCOL = ['#ffb040', '#40d0ff', '#ff6aa0', '#b4ff5a'];
-function gamePCB(nets, secs, title, done) {
+function gamePCB(nets, secs, title, done, note) {
   const G = 6, puzzle = genPCB(G, nets), _lp = (HL.day && (HL.day.lastPuzzle = puzzle)), owner = Array(G * G).fill(-1), paths = puzzle.map(() => []), fin = puzzle.map(() => false); let cur = -1, left = secs;
   const padOf = c => puzzle.findIndex(n => n.a === c || n.b === c);
   const paint = () => {
@@ -164,7 +174,7 @@ function gamePCB(nets, secs, title, done) {
     });
     $('pcbS').textContent = `${fin.filter(Boolean).length}/${nets} nets routed`;
   };
-  miniOpen(`<h3>${title}</h3><p>Join each lettered pad to its twin with a trace. Click a pad, then adjacent cells. Traces may not cross. Click inside a trace to cut it back.</p>
+  miniOpen(`<h3>${title}</h3><p>Join each lettered pad to its twin with a trace. Click a pad, then adjacent cells. Traces may not cross. Click inside a trace to cut it back.</p>${note ? `<p style="color:#9fe0ff">${note}</p>` : ''}
     <div class="tbar"><i id="pT"></i></div><div class="pcb" style="grid-template-columns:repeat(${G},44px)">${Array.from({ length: G * G }, (_, c) => `<div class="cell ${padOf(c) >= 0 ? 'pad' : ''}" data-c="${c}"></div>`).join('')}</div><p id="pcbS"></p>
     <div class="mrow"><button class="mbtn k" id="pGive">Give up</button></div>`);
   const adj = (a, b) => Math.abs(a - b) === G || (Math.abs(a - b) === 1 && ((a / G) | 0) === ((b / G) | 0));
@@ -213,6 +223,72 @@ function gameLathe(tol, title, done) {
   }, 33);
 }
 
+
+/* — soldering: heat the pad, feed the solder, release — */
+function gameSolder(n, o, done) {
+  o = o || {}; const pads = Array.from({ length: n }, () => 'idle'), BAND = [50, 80], res = [];
+  let k = 0, temp = 20, flow = 0, cold = 0, burn = 0, heat = false, feed = false, fed = false, locked = false;
+  miniOpen(`<h3>${o.title || 'Soldering'}</h3><p id="slC">${o.coach ? '' : 'Heat each pad, feed solder, release. Shiny and cone-shaped is good.'}</p>
+    <div class="sboard">${pads.map((_, i) => `<div class="spad" data-i="${i}"><b></b></div>`).join('')}</div>
+    <div class="sg"><div class="heat"><div class="zone" style="bottom:${BAND[0]}%;height:${BAND[1] - BAND[0]}%"></div><div class="fill" id="sF"></div></div>
+      <div><div class="tbar"><i id="sFlow" style="background:#c8d8e8;width:0"></i></div><small>solder flow</small><p id="sS" style="margin-top:10px"></p></div></div>
+    <div class="mrow"><button class="mbtn" id="sHeat">Iron on pad (hold Space)</button><button class="mbtn" id="sFeed" style="background:#2f5a6a">Feed solder (hold F)</button></div>`);
+  const pe = () => [...$('miniBox').querySelectorAll('.spad')];
+  const hb = $('sHeat'), fb = $('sFeed'); hb.onmousedown = () => heat = true; hb.onmouseup = hb.onmouseleave = () => heat = false; fb.onmousedown = () => feed = true; fb.onmouseup = fb.onmouseleave = () => feed = false;
+  hb.ontouchstart = () => heat = true; hb.ontouchend = () => heat = false; fb.ontouchstart = () => feed = true; fb.ontouchend = () => feed = false;
+  onKeys(e => { const d = e.type === 'keydown'; if (e.code === 'Space') heat = d; if (e.code === 'KeyF') feed = d; });
+  const MSG = { good: 'Shiny, concave fillet: a good joint.', cold: 'Cold joint: dull and grainy. It will crack in the field.', burnt: 'Burnt pad: the copper lifted. Too much heat for too long.', blob: 'Too much solder: a blob that can bridge to the next pad.' };
+  const coach = () => {
+    if (locked) return null;
+    if (temp > 90) return 'TOO HOT: the flux burns off and the pad can lift. Release SPACE!';
+    if (feed && temp < BAND[0]) return 'Cold joint! Solder on an unheated pad balls up. Release F and heat the pad first.';
+    if (flow >= 1) return 'Enough. Release F: remove the solder first, then the iron.';
+    if (!heat && temp < 24 && flow === 0) return 'Hold SPACE: touch the iron to the pad AND the component lead at the same time.';
+    if (heat && temp < BAND[0]) return 'Heating... wait until the gauge reaches the green band. The pad must melt the solder, not the iron tip.';
+    if (temp > BAND[1]) return 'Getting hot. Release SPACE for a moment.';
+    if (flow < .05) return 'In the band. Now hold F: feed the wire onto the joint, never onto the iron tip.';
+    return 'Flowing. Keep the pad in the green band (tap SPACE to hold the heat) until the flow bar fills.';
+  };
+  const finish = () => {
+    locked = true; const kind = burn >= 1.2 ? 'burnt' : flow >= 1.35 ? 'blob' : (cold >= .5 || flow < 1) ? 'cold' : 'good'; res.push(kind); pads[k] = kind; pe()[k].className = 'spad ' + kind; pe()[k].style.boxShadow = '';
+    $('slC').textContent = MSG[kind]; A.tone(kind === 'good' ? 1100 : 180, .12, .06, kind === 'good' ? 'triangle' : 'square');
+    setTimeout(() => { if (mini.classList.contains('hidden')) return; k++; if (k >= n) { miniClose(); done({ n, good: res.filter(x => x === 'good').length, results: res }); return; } temp = 20; flow = cold = burn = 0; fed = false; locked = false; pe()[k].classList.add('now'); }, 900);
+  };
+  pe()[0].classList.add('now');
+  miniTimer = setInterval(() => {
+    const dt = .05; if (locked) return;
+    temp = clamp(temp + (heat ? 34 : -16) * dt - (feed && !heat ? 4 * dt : 0), 15, 100);
+    if (heat && temp > 90) burn += dt;
+    if (feed) { fed = true; if (temp < BAND[0]) cold += dt; else if (temp > 90) burn += dt; else flow += dt; }
+    if (burn >= 1.2 || flow >= 1.5 || (flow >= 1 && !feed) || (fed && !feed && ((flow > .15 && flow < 1) || cold >= .5))) finish();
+    const el = pe()[k]; if (el && !locked) el.style.boxShadow = `0 0 ${(temp / 3).toFixed(0)}px rgba(255,${Math.round(150 - temp)},40,${(temp / 110).toFixed(2)})`;
+    $('sF').style.height = temp + '%'; $('sFlow').style.width = clamp(flow / 1 * 100, 0, 100) + '%';
+    $('sS').textContent = `pad ${Math.min(k + 1, n)}/${n} · ${Math.round(temp * 3.4 + 20)} °C pad · good so far ${res.filter(x => x === 'good').length}/${res.length}`;
+    if (o.coach) { const c = coach(); if (c) $('slC').textContent = c; }
+    HL.day.sol = { temp, flow, cold, burn, k, heat, feed, locked };
+  }, 50);
+}
+
+/* — the bench tutorial: PCB routing + soldering, ends in an exam and a certificate — */
+function lessonCard(title, html, btn, cb) { miniOpen(`<h3>${title}</h3>${html}<div class="mrow"><button class="mbtn" id="lsNext">${btn}</button><button class="mbtn k" id="lsQuit">Leave tutorial</button></div>`); $('lsNext').onclick = cb; $('lsQuit').onclick = () => { miniClose(); render(); }; }
+function lessonSolder() {
+  const step0 = () => lessonCard('Bench basics: PCB & soldering', `<p style="text-align:left">A <b>printed circuit board</b> is fibreglass with copper <b>traces</b> that connect parts. <b>Soldering</b> fuses each part's lead to a copper <b>pad</b> so current can flow. You will learn four things:</p>
+    <p style="text-align:left">1. Route a trace without a short circuit.<br>2. The five rules of a good solder joint.<br>3. Practice on one joint, then a row of pins, with the foreman's hints.<br>4. An exam: route a board and solder it without hints. Pass it for your <b>Bench Basic certificate</b> (PCB level 1: you can take PCB orders).</p>
+    <p style="text-align:left;color:#ffb860">Safety: the iron is ~330–350 °C. Work with ventilation: solder fumes (flux) are harmful. Lead-free solder melts at about 217 °C.</p>`, 'Start lesson 1', step1);
+  const step1 = () => gamePCB(1, 90, 'Lesson 1/4 — route a trace', r => r.ok ? step2() : lessonCard('Not connected', '<p>The trace has to reach its twin pad without crossing anything. Try again.</p>', 'Retry', step1), 'A trace is a copper path. Click pad A, then step through adjacent cells to the other A. Two traces that touch would be a short circuit, which is why they may not cross.');
+  const step2 = () => lessonCard('Lesson 2/4 — the five rules of a good joint', `<p style="text-align:left"><b>1. Prepare.</b> Clean the tip on brass wool; use flux or flux-core solder.<br><b>2. Heat both.</b> Touch the iron to the pad <i>and</i> the lead together for about 2–3 s.<br><b>3. Feed the joint.</b> Touch the solder wire to the heated joint, not to the iron tip.<br><b>4. Remove in order.</b> Solder away first, then the iron. Do not move the part while it cools.<br><b>5. Inspect.</b> Shiny, concave cone = good. <b>Dull and grainy</b> = cold joint (too cool). <b>Blob</b> = too much solder, risk of a bridge. <b>Black or lifted pad</b> = too hot for too long.</p>
+    <p>In the game: <b>hold SPACE</b> to heat, keep the gauge in the green band, <b>hold F</b> to feed, and release F when the flow bar is full.</p>`, 'Practice one joint', step3);
+  const step3 = () => gameSolder(1, { coach: true, title: 'Lesson 3/4 — your first joint (hints on)' }, r => r.good >= 1 ? step4() : lessonCard('That joint would fail', '<p>Read the hints under the title and try again. Heat first, then feed, then release.</p>', 'Try again', step3));
+  const step4 = () => gameSolder(4, { coach: true, title: 'Lesson 3/4 — a row of four pins (hints on)' }, r => r.good >= 3 ? lessonCard('Well done', `<p>${r.good}/4 good joints. Now the exam: you will route a small board and solder it with no hints. You need 3 good joints out of 4.</p>`, 'Start the exam', step5) : lessonCard('Not yet', `<p>${r.good}/4 good joints. You need 3. One more try.</p>`, 'Try again', step4));
+  const step5 = () => gamePCB(2, 60, 'Exam 4/4 — route the board', r => r.ok ? gameSolder(4, { coach: false, title: 'Exam — solder the board (no hints)' }, s => s.good >= 3 ? cert(s) : lessonCard('Exam failed', `<p>${s.good}/4 good joints. You need 3. A cold joint is the worst kind: it passes the bench test and fails in the field.</p>`, 'Retake the exam', step5)) : lessonCard('Exam failed', '<p>The board was not fully routed in time.</p>', 'Retake the exam', step5), 'Exam: no hints.');
+  const cert = s => {
+    adv(75, 8); const first = !D.tut; if (first) { D.tut = true; D.xp.pcb += 2; }
+    log(first ? `Bench Basic certificate earned (${s.good}/4 good joints). PCB is now level ${skill('pcb')}: the foreman will give you PCB orders.` : `Repeated the bench exam: ${s.good}/4 good joints.`); persist();
+    lessonCard('Certificate: Bench Basic', `<p style="font-size:14px">Awarded to <b>A. Ressel</b>, engineer (licence revoked 2131).<br>${s.good}/4 joints inspected: <b>good</b>.</p><p>${first ? '+2 PCB XP: PCB level 1 unlocked. PCB repair orders now pay for routing <i>and</i> for solder quality.' : 'No extra XP for repeating the exam.'}</p>`, 'Back to the bench', () => { miniClose(); render(); });
+  };
+  step0();
+}
+
 /* — cooking: keep the pot in the green — */
 function gameCook(rec, done) {
   let T0 = 20, held = false, left = 12, inz = 0; const [lo, hi] = rec.zone;
@@ -247,23 +323,34 @@ function benchLathe(kind) {
   });
 }
 function benchPCB(kind) {
-  if (tired(15)) return; const nets = kind === 'practice' ? 3 : kind === 'high' ? 4 : 3 + (skill('pcb') >= 2 ? 1 : 0);
-  gamePCB(nets, kind === 'practice' ? 70 : 55, kind === 'practice' ? 'PCB — practice' : 'PCB repair — rush job', r => {
-    adv(kind === 'practice' ? 60 : 90, 12);
-    if (kind === 'practice') { spend(Math.min(D.money, 6)); D.xp.pcb += r.ok ? 1 : .5; log(r.ok ? 'PCB practice: clean routing. (−6 ₵ boards)' : 'PCB practice: ran out of time. (−6 ₵ boards)'); }
-    else if (r.ok) { const pay = Math.round(55 + r.frac * 40); earn(pay); D.jobs++; D.xp.pcb += r.frac > .5 ? 2 : 1; if (Math.random() < .55) { D.parts.board++; log(`PCB order done: ${pay} ₵. A spare fire-control board is yours. (+1 board)`); } else log(`PCB order done: ${pay} ₵.`); }
-    else log(`PCB order failed (${Math.round((r.partial || 0) * 100)}% routed). No pay.`);
-    persist(); render();
+  if (tired(15)) return; const nets = kind === 'practice' ? 3 : kind === 'high' ? 4 : 3 + (skill('pcb') >= 2 ? 1 : 0), practice = kind === 'practice';
+  gamePCB(nets, practice ? 70 : 55, practice ? 'PCB — practice' : 'PCB repair — rush job', r => {
+    if (!r.ok) { adv(practice ? 60 : 90, 12); if (practice) { spend(Math.min(D.money, 6)); D.xp.pcb += .5; log('PCB practice: ran out of time. (−6 ₵ boards)'); } else log(`PCB order failed (${Math.round((r.partial || 0) * 100)}% routed). No pay.`); persist(); return render(); }
+    gameSolder(practice ? 2 : 3, { coach: practice && !D.tut, title: practice ? 'PCB practice — solder the joints' : 'PCB repair — solder the joints' }, sol => {
+      adv(practice ? 60 : 90, 12); const q = sol.good / sol.n, tag = `${sol.good}/${sol.n} good joints`;
+      if (practice) { spend(Math.min(D.money, 6)); D.xp.pcb += q >= .5 ? 1 : .5; log(`PCB practice: clean routing, ${tag}. (−6 ₵ boards)`); }
+      else {
+        const pay = Math.round((55 + r.frac * 40) * (.55 + .45 * q)); earn(pay); D.jobs++; D.xp.pcb += q < .5 ? 0 : r.frac > .5 ? 2 : 1;
+        const bad = sol.n - sol.good, why = bad ? ` ${bad} bad joint${bad > 1 ? 's' : ''} cost you ${Math.round((55 + r.frac * 40) - pay)} ₵.` : '';
+        if (Math.random() < .55 && q >= .5) { D.parts.board++; log(`PCB order done: ${pay} ₵ (${tag}).${why} A spare fire-control board is yours. (+1 board)`); } else log(`PCB order done: ${pay} ₵ (${tag}).${why}`);
+        if (!D.tut && bad) log('Foreman: "Sloppy joints. There is a free soldering tutorial at the bench."');
+      }
+      persist(); render();
+    });
   });
 }
 function jobHigh() {
   if (tired(30)) return;
   gameLathe(.25, 'Spire contract 1/2 — precision shaft', a => {
-    gamePCB(4, 50, 'Spire contract 2/2 — controller board', b => {
+    const conclude = b => {
       adv(240, 30); const score = (a.ok ? 1 : 0) + (b.ok ? 1 : 0), base = [0, 110, 360][score], pay = Math.round(base * .5);
       if (score) { earn(pay); D.jobs++; D.xp.pcb += score; D.xp.lathe += score; } if (score === 2) D.parts.board++, D.parts.barrel++;
-      log(`Spire Tower: ${score}/2 specs passed. Paid ${pay} ₵ (${base} ₵ contract at 50%: your engineering licence was revoked in the 2131 Purge, so they classify you as a "consultant").${score === 2 ? ' (+1 board, +1 barrel)' : ''}`);
+      log(`Spire Tower: ${score}/2 specs passed${b.note || ''}. Paid ${pay} ₵ (${base} ₵ contract at 50%: your engineering licence was revoked in the 2131 Purge, so they classify you as a "consultant").${score === 2 ? ' (+1 board, +1 barrel)' : ''}`);
       persist(); render();
+    };
+    gamePCB(4, 50, 'Spire contract 2/2 — controller board', b => {
+      if (!b.ok) return conclude(b);
+      gameSolder(4, { coach: false, title: 'Spire contract — solder the controller board' }, sol => { b.ok = sol.good >= 3; b.note = ` (${sol.good}/4 joints good)`; conclude(b); });
     });
   });
 }
@@ -309,6 +396,7 @@ function actions() {
   if (L === 'shop') {
     a.push(act('MEDIUM JOB: Lathe order', `1.5 h · 40–80 ₵ + spare barrel · needs Lathe L1 (you: L${skill('lathe')})`, 'Take order', () => benchLathe('mid'), { disabled: skill('lathe') < 1 }));
     a.push(act('MEDIUM JOB: PCB repair', `1.5 h · 55–95 ₵ + spare board · needs PCB L1 (you: L${skill('pcb')})`, 'Take order', () => benchPCB('mid'), { disabled: skill('pcb') < 1 }));
+    a.push(act('TUTORIAL: PCB & soldering bench basics', D.tut ? 'Completed. Repeat for practice (75 min, no extra XP).' : 'free · 75 min · route a trace, learn the five soldering rules, pass the exam. Unlocks PCB level 1.', D.tut ? 'Repeat' : 'Start lesson', lessonSolder, { cls: 'alt' }));
     a.push(act('Practice at the lathe', '1 h · −6 ₵ stock · trains Lathe', 'Practice', () => benchLathe('practice')), act('Practice at the PCB bench', '1 h · −6 ₵ boards · trains PCB', 'Practice', () => benchPCB('practice')));
   }
   if (L === 'tower') a.push(act('HIGH-LEVEL JOB: Spire engineering contract', `4 h · lathe + PCB specs · up to 180 ₵ (50% — no licence) + parts · needs L2 in both (you: PCB L${skill('pcb')}, Lathe L${skill('lathe')})`, 'Take contract', jobHigh, { disabled: skill('pcb') < 2 || skill('lathe') < 2 }));
@@ -343,7 +431,7 @@ function endDay() {
   });
 }
 function nightAfter() {
-  const keep = { xp: D.xp, parts: D.parts, ing: D.ing, tin: Math.max(0, D.tin - 5) }; persist();
+  const keep = { tut: D.tut, xp: D.xp, parts: D.parts, ing: D.ing, tin: Math.max(0, D.tin - 5) }; persist();
   S.fromDay = true; const n = D.n + 1; S.nextDay = { n, keep }; S.family && (S.family.fakeMed = S.fakeMed);
   HL.goChapter(S.pirateSeen ? 2 : HL.idx.pirate); HL.lockPointer();
   S.sanity = clamp(.92 - (S.stim || 0) * .08 - (S.tinnitus || 0) / 400, .35, 1); S.ring = Math.max(S.ring, (S.stim || 0) * .01);
@@ -373,6 +461,7 @@ const chDay = {
 HL.registerChapter('day', chDay);
 HL.cleanups.push(i => { if (i !== HL.idx.day) { root.classList.add('hidden'); document.body.classList.remove('day'); mini.classList.add('hidden'); } });
 function contract(pay, minutes) { earn(pay); adv(minutes, 25); log(`Mercenary contract: ${pay} ₵ for the family purse. Your hands still shake from the guns.`); }
-HL.day = { contract, get D() { return D; }, newDay, render, actions, gameSort, gamePCB, gameLathe, gameCook, endDay, ride, walk, buy, cook };
+HL.day = { gameSolder, tutorial: lessonSolder, contract, get D() { return D; }, newDay, render, actions, gameSort, gamePCB, gameLathe, gameCook, endDay, ride, walk, buy, cook };
+const tb = $('tutBtn'); if (tb) tb.addEventListener('click', e => { e.stopPropagation(); S.dayStarted = false; S.family = null; HL.startGame(HL.idx.day); setTimeout(() => { if (D) { D.loc = 'shop'; render(); lessonSolder(); } }, 500); });
 const btn = $('dayBtn'); if (btn) btn.addEventListener('click', e => { e.stopPropagation(); S.dayStarted = false; S.family = null; HL.startGame(HL.idx.day); });
 })();
