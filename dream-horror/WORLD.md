@@ -34,6 +34,13 @@ residue that rings at his pitch. Asleep, he can **tune in** (hold **R**): the wo
 deafening, and the **echoes** of those people appear. Listening to them steadies his mind but costs sanity while he holds it.
 The ringing was never in his ears. It is everyone he sent away, at once.
 
+### The family
+- **Ilse Ressel**, his mother: she worked the pressure pumps before him. Scarred lungs, needs medicine, always says she doesn't.
+- **Nora Ressel**, his sister, 9: on the child quota. She draws plants on the wall where the window used to be.
+
+At the end of every shift Aurel chooses who the money is for. At the inflated rate it never covers everyone.
+The Greening Loan always does, and it takes the borrower *and dependants* as collateral.
+
 ## The resistance: M
 A network of people who have seen the greenhouses from inside. Their courier, **Ruta Vey ("M")**, carries forged permits
 because the Bureau stopped issuing seals to people like her. Letting her through earns a citation, and also a warm seed that

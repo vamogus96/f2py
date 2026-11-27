@@ -630,6 +630,7 @@ const ch2 = {
     addEcho('e5', -16.5, 3, 'Josef Dunmore: "Fifty years I breathed this city. I only wanted to see my garden again."');
     later(1500, () => say('Water to the ankles. Everything you ever lost is in this house.'));
     later(7500, () => say('Three things of yours are here. Bring them back to the door.'));
+    familyDream().forEach((l, i) => later(14000 + i * 8000, () => { say(l, 6500); S.ring = .015; }));
     this.start = { x: 0, z: 9.5 };
   },
   room(cx, cz, kind) {
@@ -734,7 +735,7 @@ const ch3 = {
     A.startBox(.2); A.box.loops = 3; S.spike = 1;
     const lines = ['You lie down beside yourself.', 'You were never the one who was dreaming.',
       S.moleHelped ? 'Somewhere a woman called M is still breathing because of you. The ringing is softer.' : 'Everyone you sent away is ringing at once.',
-      'The song stops. The house is very quiet.', 'You open your eyes.', 'Something is standing at the foot of the bed. It is holding a Greening Loan with your name on it.'];
+      'The song stops. The house is very quiet.', 'You open your eyes.', S.family && S.family.loan ? 'Something is standing at the foot of the bed. It is holding the loan you signed. Three names on it.' : 'Something is standing at the foot of the bed. It is holding a Greening Loan with your name on it.'];
     lines.forEach((l, i) => setTimeout(() => say(l, 3400), i * 4200));
     setTimeout(() => { S.flash = 1; A.sting(1.4); S.fadeTarget = 0; }, 4200 * lines.length - 600);
     setTimeout(() => showEnd(), 4200 * lines.length + 2500);
@@ -932,6 +933,23 @@ const APPS = [
   { name: 'Josef Dunmore', id: 'DU-1938', exp: '15.04.47', L: 20, rName: 'Josef Dunmore', rId: 'DU-1938', paid: 312, seal: true, coat: 0x3a3a3a, rate: 18.9, say: 'Fifty years I have breathed this city. Fifty years.', res: 'He would sign anything to see his garden again. He does not know he would become it.' },
   { name: 'Aurel Ressel', id: 'RS-0909', exp: '14.03.48', L: 42, rName: 'Aurel Ressel', rId: 'RS-0909', paid: 0, seal: true, loan: true, self: true, noMask: true, coat: 0x24262a, say: '…', res: 'The ringing is not in your ears. It never was. It is everyone you sent away, at once.' },
 ];
+function familyDream() {
+  const F = S.family; if (!F) return [];
+  const p = F.people, out = [];
+  if (!p.ilse.o2 || !p.ilse.med) out.push('Ilse, ringing at your frequency: "Don\'t wake me for the medicine, love. Save it for Nora."');
+  if (!p.nora.o2) out.push('Nora, ringing: "My meter beeped all night. I held my breath like you taught me."');
+  else if (F.seed) out.push('Nora, ringing softly: "The plant by my bed is breathing for me. It hums like your ears."');
+  if (!p.aurel.o2) out.push('Your own lungs, ringing: you skipped yourself. The dream is thinner tonight.');
+  if (!F.rent) out.push('A notice floats past in the water: EVICTION — Bureau of Housing.');
+  if (F.loan) out.push('A contract drifts by. Three names on it. One of them is still learning to write.');
+  if (!out.length) out.push('Ilse, from somewhere warm: "We all breathed tonight. Sleep, Aurel."');
+  return out;
+}
+const FAMILY = [
+  { id: 'aurel', name: 'Aurel', role: 'you · inspector, tinnitus', L: 21, food: 35, med: 0, color: '#5a7080', bio: 'If you do not breathe, you do not work. If you do not work, nobody breathes. You will sleep badly either way.' },
+  { id: 'ilse', name: 'Ilse', role: 'mother · scarred lungs', L: 21, food: 30, med: 90, color: '#8a6a5a', bio: 'She worked the pressure pumps before you did. She says she does not need the medicine. She always says that.' },
+  { id: 'nora', name: 'Nora', role: 'sister, 9 · child quota', L: 10, food: 25, med: 0, color: '#7a8a5a', bio: 'She draws plants on the wall where the window used to be. She asks why the plants in the posters have faces.' },
+];
 const chOffice = {
   name: ['Waking', 'The Oxygen Tax Bureau'],
   build() {
@@ -1047,17 +1065,57 @@ const chOffice = {
   finish() {
     if (this.finished) return; this.finished = true;
     S.ring = .035; S.flash = .6; A.sting(.9);
-    const wage = 400 + this.correct * 10 - this.cit * 15, o2 = 42 * this.rate, rent = 120, bal = wage - o2 - rent;
-    $('sumBody').innerHTML = `Processed ${APPS.length} · correct ${this.correct} · citations ${this.cit}<br><br>
-      Wage (400 + 10 per correct − 15 per citation): <b>${wage.toFixed(1)} ₵</b><br>
-      Your oxygen tax (you and your mother, 42 L × ${this.rate.toFixed(1)}): <b>−${o2.toFixed(1)} ₵</b><br>
-      Rent: <b>−${rent} ₵</b><br><br>Balance: <b class="neg">${bal.toFixed(1)} ₵</b><br><br>
-      Under your door: a Concord Greening Loan offer. Pre-filled. Pre-signed.<br><i>Volunteer: A. Ressel.</i>${S.moleHelped ? '<br><br>In your pocket, the seed is still humming.' : ''}`;
+    this.wage = 400 + this.correct * 10 - this.cit * 15; this.savings = 260;
+    $('sumBody').innerHTML = `Processed ${APPS.length} · correct ${this.correct} · citations ${this.cit}<br>
+      Wage (400 + 10 per correct − 15 per citation): <b>${this.wage.toFixed(1)} ₵</b> · savings <b>${this.savings} ₵</b><br>
+      <i>Under your door: a Concord Greening Loan offer. Pre-filled. Pre-signed. Volunteer: A. Ressel.</i>${S.moleHelped ? '<br><i>In your pocket, the seed is still humming.</i>' : ''}`;
+    this.house = { sel: 'aurel', rent: true, loan: false, seed: false, pay: {} };
+    FAMILY.forEach(f => this.house.pay[f.id] = { o2: true, food: true, med: f.med > 0 });
+    this.renderHouse();
     later(1800, () => { $('office').classList.add('hidden'); $('ofSummary').classList.remove('hidden'); });
   },
+  // ── household: pick a family member, decide what the money pays for ──
+  cost(f, k) { return k === 'o2' ? f.L * this.rate : k === 'food' ? f.food : f.med; },
+  spend() {
+    const h = this.house; let t = h.rent ? 120 : 0;
+    FAMILY.forEach(f => ['o2', 'food', 'med'].forEach(k => { if (h.pay[f.id][k] && !(k === 'o2' && h.seed && f.id === 'nora')) t += this.cost(f, k); }));
+    return t;
+  },
+  funds() { return this.wage + this.savings + (this.house.loan ? 1200 : 0); },
+  status(f) {
+    const p = this.house.pay[f.id], o2 = p.o2 || (this.house.seed && f.id === 'nora');
+    if (!o2) return ['bad', 'meter runs out tonight'];
+    if (f.med && !p.med) return ['bad', 'no medicine: her lungs close'];
+    if (!p.food) return ['warn', 'hungry'];
+    return ['ok', 'breathing, fed'];
+  },
+  renderHouse() {
+    const h = this.house, sel = FAMILY.find(f => f.id === h.sel);
+    $('famCards').innerHTML = FAMILY.map(f => { const [cls, txt] = this.status(f); return `<button class="fam ${f.id === h.sel ? 'sel' : ''}" data-id="${f.id}"><span class="av" style="background:${f.color}">${f.name[0]}</span><b>${f.name}</b><small>${f.role}</small><em class="${cls}">${txt}</em></button>`; }).join('');
+    const row = (k, label) => { const on = h.pay[sel.id][k]; const free = k === 'o2' && h.seed && sel.id === 'nora'; return `<div class="need"><span>${label}</span><span>${free ? 'free (M’s seed)' : this.cost(sel, k).toFixed(1) + ' ₵'}</span><button data-k="${k}" class="${on ? 'on' : ''}">${on ? 'Pay' : 'Skip'}</button></div>`; };
+    $('famDetail').innerHTML = `<h3>${sel.name} <small>${sel.role}</small></h3><p>${sel.bio}</p>` +
+      row('o2', `Oxygen ${sel.L} L × ${this.rate.toFixed(1)}`) + row('food', 'Food for the week') + (sel.med ? row('med', 'Lung medicine') : '');
+    const fu = this.funds(), sp = this.spend(), left = fu - sp;
+    $('famHouse').innerHTML = `<div class="need"><span>Rent (the flat)</span><span>120 ₵</span><button data-h="rent" class="${h.rent ? 'on' : ''}">${h.rent ? 'Pay' : 'Skip'}</button></div>
+      <div class="need loanrow"><span>Sign the Concord Greening Loan<br><small>+1200 ₵ · collateral: the biological estate of the borrower <b>and dependants</b></small></span><span></span><button data-h="loan" class="${h.loan ? 'on bad' : ''}">${h.loan ? 'Signed' : 'Sign'}</button></div>
+      ${S.moleHelped ? `<div class="need"><span>Plant M's seed by Nora's bed<br><small>it breathes for her. Illegal.</small></span><span></span><button data-h="seed" class="${h.seed ? 'on' : ''}">${h.seed ? 'Planted' : 'Plant'}</button></div>` : ''}`;
+    $('famTotals').innerHTML = `Funds <b>${fu.toFixed(1)} ₵</b> − spending <b>${sp.toFixed(1)} ₵</b> = <b class="${left < 0 ? 'neg' : 'pos'}">${left.toFixed(1)} ₵</b>${left < 0 ? '<br><small>You cannot spend money you do not have. Skip something, or sign.</small>' : ''}`;
+    $('sleepBtn').classList.toggle('disabled', left < 0);
+  },
+  houseClick(e) {
+    const t = e.target.closest('button'); if (!t || !this.house) return; const h = this.house;
+    if (t.dataset.id) h.sel = t.dataset.id;
+    if (t.dataset.k) { const p = h.pay[h.sel]; p[t.dataset.k] = !p[t.dataset.k]; A.burst(2400, 3, .05, .1); }
+    if (t.dataset.h) { h[t.dataset.h] = !h[t.dataset.h]; if (t.dataset.h === 'loan' && h.loan) { S.ring = .03; A.sting(.4); } }
+    this.renderHouse();
+  },
   leave() {
+    if (this.house && this.funds() - this.spend() < 0) { A.tone(200, .2, .1, 'square'); return; }
+    const h = this.house; if (h) { S.family = { loan: h.loan, seed: h.seed, rent: h.rent, people: {} }; FAMILY.forEach(f => { const p = h.pay[f.id]; S.family.people[f.id] = { o2: p.o2 || (h.seed && f.id === 'nora'), food: p.food, med: f.med ? p.med : true }; }); }
     $('ofSummary').classList.add('hidden'); S.seated = false; S.uiMode = false; S.flashlightOn = true; document.body.classList.remove('office');
     goChapter(2); lockPointer();
+    const fp = S.family && S.family.people;
+    if (fp && !fp.aurel.o2) S.sanity = .45; else if (fp && !fp.aurel.food) S.sanity = .6;
   },
   update(dt) {
     S.wind = .05; S.tension = .1; S.insanBase = .05 + this.cit * .04;
@@ -1405,7 +1463,7 @@ document.addEventListener('mousemove', e => {
 function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
 function startGame(ch = 0) {
   A.init(); $('menu').classList.add('hidden'); $('pause').classList.add('hidden'); $('end').classList.add('hidden'); S.endShown = false;
-  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; S.heard = new Set(); S.moleHelped = false; S.citations = 0; goChapter(ch); } S.paused = false; if (!S.uiMode) lockPointer();
+  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; S.heard = new Set(); S.moleHelped = false; S.citations = 0; S.family = null; goChapter(ch); } S.paused = false; if (!S.uiMode) lockPointer();
 }
 $('menu').addEventListener('click', () => startGame(0));
 $('demoBtn').addEventListener('click', e => { e.stopPropagation(); startGame(4); });
@@ -1415,12 +1473,13 @@ $('bApprove').addEventListener('click', () => chOffice.decide('approve'));
 $('bDeny').addEventListener('click', () => chOffice.decide('deny'));
 $('bRefer').addEventListener('click', () => chOffice.decide('refer'));
 $('sleepBtn').addEventListener('click', () => chOffice.leave());
+$('ofSummary').addEventListener('click', e => chOffice.houseClick(e));
 $('pause').addEventListener('click', () => { A.init(); $('pause').classList.add('hidden'); S.paused = false; if (!S.uiMode) lockPointer(); });
 canvas.addEventListener('mousedown', e => { if (S.chapter !== 6 || !S.running || S.paused) return; A.init(); if (!chCombat.p.alive) { chCombat.restart(); return; } if (e.button === 0) chCombat.fire(); if (e.button === 2) chCombat.throwOrPick(); });
 canvas.addEventListener('contextmenu', e => { if (S.chapter === 6) e.preventDefault(); });
 $('combatBtn').addEventListener('click', e => { e.stopPropagation(); startGame(6); });
 $('end').addEventListener('click', () => { const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
-function showEnd(txt) { S.endShown = true; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
+function showEnd(txt) { S.endShown = true; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}${S.family ? ' · family: ' + FAMILY.map(f => { const q = S.family.people[f.id]; return f.name + (q.o2 && q.food && q.med ? ' ✓' : ' ✗'); }).join(' ') + (S.family.loan ? ' · loan signed' : '') : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
 
 function useInteract() {
   const it = target; if (it) it.onUse();
