@@ -1068,7 +1068,309 @@ const chOffice = {
     });
   },
 };
-const chapters = [ch0, ch1, ch2, ch3, ch4, chOffice];
+
+/* ═════════════════════════ COMBAT SESSIONS — 2.5D, Hotline Miami × Superhot ═════════════════════════
+   Top-down, one hit kills everyone, including you. Time moves only when you move (when you breathe).
+   Map legend: # wall · o planter (low, shoot over it) · P player · m melee orderly · g gunner · v verdant · e random · w weapon · X exit */
+const CMAPS = [
+  { name: 'Floor 1 — Intake', a: '#2a0c2a', b: '#3a1038', line: '#ff3aa0', glow: 0xff3aa0, map: [
+    '####################',
+    '#P.....#...........#',
+    '#......#....m......#',
+    '#..w...#...........#',
+    '#......####.####...#',
+    '#..................#',
+    '#####.#####...g....#',
+    '#.......#.....######',
+    '#..m....#..........#',
+    '#............e.....#',
+    '#...e...#.........X#',
+    '####################'] },
+  { name: 'Floor 2 — Greening Ward', a: '#06242a', b: '#0a3238', line: '#3affe0', glow: 0x3affe0, map: [
+    '######################',
+    '#P...#.......#.......#',
+    '#....#...g...#...m...#',
+    '#....#.......#.......#',
+    '#..w.###.#####.###.###',
+    '#....................#',
+    '###.####...oo...####.#',
+    '#......#...oo...#....#',
+    '#..m...#........#..g.#',
+    '#......###.##.###....#',
+    '#...v.....e....m...X.#',
+    '######################'] },
+  { name: 'Floor 3 — The Nursery', a: '#0c2410', b: '#123418', line: '#b4ff5a', glow: 0xb4ff5a, map: [
+    '########################',
+    '#P.....o.....o.....v...#',
+    '#..w...o..v..o.........#',
+    '#......o.....o...g.....#',
+    '#..........oo..........#',
+    '#####.###......###.#####',
+    '#.v...#..........#...m.#',
+    '#.....#...oooo...#.....#',
+    '#..g..#....v.....#..e..#',
+    '#.........m...........X#',
+    '########################'] },
+];
+const WEAP = {
+  fists: { melee: true, range: 1.05, arc: 1.3, cd: .35, label: 'FISTS' },
+  pipe: { melee: true, range: 1.6, arc: 1.7, cd: .45, label: 'PIPE' },
+  pistol: { gun: true, ammo: 6, cd: .32, spread: .03, pellets: 1, label: 'PISTOL' },
+  shotgun: { gun: true, ammo: 3, cd: .8, spread: .3, pellets: 6, label: 'SHOTGUN' },
+};
+function makeWeaponMesh(type) {
+  const g = new T.Group();
+  if (type === 'pipe') { const c = cyl(.035, .035, 1.0, 0, 0, .35, mat({ color: 0xb0b6c0, emissive: 0x202428 }), 6, g); c.rotation.x = Math.PI / 2; }
+  else if (type === 'pistol') box(.08, .12, .34, 0, 0, .14, mat({ color: 0x2a2c30, emissive: 0x101010 }), false, g);
+  else if (type === 'shotgun') box(.09, .1, .9, 0, 0, .36, mat({ color: 0x4a3420, emissive: 0x140c06 }), false, g);
+  return g;
+}
+function makeFighter(type) {
+  const g = new T.Group();
+  const pal = { player: [0xe8eef4, 0x223038], melee: [0xff4a3a, 0x500a06], gunner: [0xff2244, 0x500612], verdant: [0x3adf5a, 0x0a4a14] }[type];
+  const body = mat({ color: pal[0], emissive: pal[1], flatShading: true }), dark = mat({ color: 0x18181c });
+  cyl(.09, .1, .8, -.12, .4, 0, type === 'player' ? dark : body, 5, g); cyl(.09, .1, .8, .12, .4, 0, type === 'player' ? dark : body, 5, g);
+  const torso = new T.Mesh(new T.CylinderGeometry(.27, .2, .75, 6), type === 'player' ? mat({ color: 0x30343c, flatShading: true }) : body); torso.position.y = 1.15; g.add(torso);
+  const head = new T.Mesh(new T.IcosahedronGeometry(.19, 0), body); head.position.y = 1.72; g.add(head);
+  const arm = new T.Group(); arm.position.set(.3, 1.35, 0); g.add(arm);
+  const a = cyl(.06, .05, .6, 0, 0, .3, type === 'player' ? mat({ color: 0x30343c }) : body, 5, arm); a.rotation.x = Math.PI / 2;
+  const arm2 = new T.Group(); arm2.position.set(-.3, 1.35, 0); g.add(arm2);
+  const b = cyl(.06, .05, .6, 0, -.28, .05, type === 'player' ? mat({ color: 0x30343c }) : body, 5, arm2);
+  const hand = new T.Group(); hand.position.set(0, 0, .6); arm.add(hand);
+  if (type === 'verdant') {
+    for (let i = 0; i < 6; i++) { const an = i / 6 * Math.PI * 2, pt = new T.Mesh(new T.ConeGeometry(.08, .38, 4), mat({ color: 0xb4ff5a, emissive: 0x2a6a10, flatShading: true })); pt.position.set(Math.cos(an) * .19, 1.86, Math.sin(an) * .19); pt.rotation.set(Math.sin(an) * .9, 0, -Math.cos(an) * .9); g.add(pt); }
+  } else {
+    box(.2, .14, .1, 0, 1.68, .15, dark, false, g);
+    const f = cyl(.055, .055, .1, 0, 1.64, .22, type === 'player' ? new T.MeshBasicMaterial({ color: 0x8fe8ff }) : mat({ color: 0x555 }), 8, g); f.rotation.x = Math.PI / 2;
+  }
+  g.userData = { arm, arm2, hand, torso, color: pal[0] };
+  return g;
+}
+const mouseNDC = new T.Vector2(0, 0); let mouseMoved = 0;
+document.addEventListener('mousemove', e => { mouseNDC.x = e.clientX / window.innerWidth * 2 - 1; mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1; mouseMoved = 1; });
+const chCombat = {
+  name: ['Lucid Raid', 'Combat Sessions'], combat: true,
+  build() {
+    S.uiMode = true; S.flashlightOn = false; try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+    $('combat').classList.remove('hidden'); canvas.style.cursor = 'crosshair'; document.body.classList.add('combat');
+    this.score = 0; this.clock = 0; this.kills = 0; this.deaths = 0; this.loadLevel(0);
+  },
+  loadLevel(n) {
+    clearWorld(); this.level = n; this.levelScore = this.score;
+    const L = CMAPS[n], rows = L.map, H = rows.length, W = Math.max(...rows.map(r => r.length)), C = 1.6;
+    const rng = mulberry(session.seed * 31 + n * 7919);
+    const P = (c, r) => ({ x: (c - (W - 1) / 2) * C, z: (r - (H - 1) / 2) * C });
+    scene.fog.color.set(0x07050c); scene.fog.density = .012; scene.background.set(0x07050c);
+    amb.color.set(0xc0b0d0); amb.intensity = 1.0; moon.intensity = .7; moon.color.set(0xffffff); moon.position.set(-4, 10, 6);
+    const floorTex = mkCanvas(64, 64, (g, w, h) => { g.fillStyle = L.a; g.fillRect(0, 0, w, h); g.fillStyle = L.b; g.fillRect(0, 0, 32, 32); g.fillRect(32, 32, 32, 32); g.strokeStyle = L.line; g.globalAlpha = .35; g.strokeRect(.5, .5, 63, 63); g.globalAlpha = 1; noise(g, w, h, 10); });
+    slab(W * C, H * C, 0, 0, 0, floorTex, C * 2);
+    const wallM = mat({ color: 0x15121c, emissive: 0x06040a }), capM = new T.MeshBasicMaterial({ color: L.glow });
+    rows.forEach((row, r) => {
+      let c = 0;
+      while (c < W) {
+        if (row[c] === '#') { let e = c; while (e < W && row[e] === '#') e++; const a = P(c, r), b = P(e - 1, r), cx = (a.x + b.x) / 2, len = (e - c) * C; wallBox(len, 1.5, C, cx, a.z, wallM); box(len, .04, C, cx, 1.52, a.z, capM, false); c = e; }
+        else c++;
+      }
+    });
+    this.enemies = []; this.pickups = []; this.bullets = []; this.thrown = []; this.shards = [];
+    rows.forEach((row, r) => [...row].forEach((ch, c) => {
+      const q = P(c, r);
+      if (ch === 'o') { box(C * .85, .7, C * .85, q.x, .35, q.z, mat({ color: 0x3a2414 }), false); sph(.45, q.x, .85, q.z, mat({ color: 0x2f9a3a, emissive: 0x0a3a10, flatShading: true })); colliders.push({ x0: q.x - C * .42, x1: q.x + C * .42, z0: q.z - C * .42, z1: q.z + C * .42, on: true, noLos: true, low: true }); }
+      if (ch === 'P') this.spawn = q;
+      if (ch === 'w') this.addPickup(q.x, q.z, rng() < .5 ? 'pipe' : rng() < .5 ? 'pistol' : 'shotgun');
+      if (ch === 'X') { this.exit = q; this.exitPad = cyl(.65, .65, .05, q.x, .03, q.z, new T.MeshBasicMaterial({ color: 0x333333 }), 20); }
+      if ('mgve'.includes(ch)) { let t = { m: 'melee', g: 'gunner', v: 'verdant' }[ch]; if (ch === 'e') t = ['melee', 'gunner', 'verdant'][Math.floor(rng() * 3)]; this.addEnemy(t, q.x, q.z, rng); }
+    }));
+    this.p = { x: this.spawn.x, z: this.spawn.z, ang: Math.PI, r: .32, weapon: null, alive: true, cd: 0, swing: 0, vx: 0, vz: 0 };
+    this.pm = makeFighter('player'); world.add(this.pm); this.pWeapon = null;
+    this.halo = new T.PointLight(0x8fe8ff, .9, 7, 1.5); world.add(this.halo);
+    this.muzzle = new T.PointLight(0xffd080, 0, 8, 1.5); world.add(this.muzzle);
+    this.exitLight = new T.PointLight(L.glow, 0, 6, 1.5); this.exitLight.position.set(this.exit.x, 1.2, this.exit.z); world.add(this.exitLight);
+    this.bulletGeo = new T.CylinderGeometry(.05, .05, .5, 5); this.bulletGeo.rotateX(Math.PI / 2);
+    this.ts = .06; this.burst = 0; this.combo = 0; this.comboT = 0; this.cleared = false; this.deadT = 0; this.beatT = 0; this.beatI = 0;
+    $('cbLevel').textContent = `${L.name}  ·  dream #${session.seed}`;
+    this.msg('TIME MOVES WHEN YOU BREATHE', 2600);
+    camera.position.set(this.p.x, 13, this.p.z + 7);
+  },
+  msg(t, ms) { const el = $('cbMsg'); el.textContent = t; el.classList.add('on'); clearTimeout(this.msgT); if (ms) this.msgT = setTimeout(() => el.classList.remove('on'), ms); },
+  addPickup(x, z, type, ammo) {
+    const g = makeWeaponMesh(type); g.position.set(x, .15, z); world.add(g);
+    const ring = new T.Mesh(new T.RingGeometry(.35, .42, 20), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .5, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, .03, z); world.add(ring);
+    this.pickups.push({ g, ring, type, ammo: ammo ?? (WEAP[type].ammo || 0), x, z });
+  },
+  addEnemy(type, x, z, rng) {
+    const g = makeFighter(type); g.position.set(x, 0, z); world.add(g);
+    const wt = type === 'gunner' ? (rng() < .65 ? 'pistol' : 'shotgun') : type === 'melee' ? (rng() < .6 ? 'pipe' : null) : null;
+    if (wt) g.userData.hand.add(makeWeaponMesh(wt));
+    const e = { type, g, x, z, r: .34, ang: rng() * 6.28, alive: true, state: 'idle', react: 0, cd: rng(), wind: 0, weapon: wt, side: 0, sideT: 0, lastX: x, lastZ: z, bob: rng() * 6 };
+    g.rotation.y = e.ang; this.enemies.push(e);
+  },
+  aimPoint() {
+    const rc = new T.Raycaster(); rc.setFromCamera(mouseNDC, camera);
+    const hit = new T.Vector3(); return rc.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -1.2), hit) ? hit : null;
+  },
+  spawnBullet(x, z, ang, speed, owner, kind) {
+    const m = kind === 'spore' ? new T.Mesh(new T.SphereGeometry(.13, 8, 6), new T.MeshBasicMaterial({ color: 0xb4ff5a })) : new T.Mesh(this.bulletGeo, new T.MeshBasicMaterial({ color: owner === 'p' ? 0x8fe8ff : 0xff7a3a }));
+    m.position.set(x, 1.3, z); m.rotation.y = ang; world.add(m);
+    this.bullets.push({ m, x, z, vx: Math.sin(ang) * speed, vz: Math.cos(ang) * speed, owner, life: 4 });
+  },
+  fire() {
+    const p = this.p; if (!p.alive || p.cd > 0 || S.paused) return;
+    const w = WEAP[p.weapon ? p.weapon.type : 'fists']; this.burst = 1;
+    if (w.melee) {
+      p.cd = w.cd; p.swing = .22; A.burst(700, 1, .12, .25);
+      this.enemies.forEach(e => {
+        if (!e.alive) return; const dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz); let da = Math.atan2(dx, dz) - p.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+        if (d < w.range + .3 && Math.abs(da) < w.arc / 2 && !losBlocked(p.x, p.z, e.x, e.z)) this.kill(e, Math.atan2(dx, dz));
+      });
+      this.bullets.forEach(b => { if (b.owner !== 'e') return; const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz); let da = Math.atan2(dx, dz) - p.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (d < w.range + .5 && Math.abs(da) < w.arc / 2) { b.life = 0; this.spark(b.x, b.z, 0xffffff); A.tone(2400, .2, .05, 'square'); } });
+    } else {
+      if (p.weapon.ammo <= 0) { A.tone(1800, .05, .05, 'square'); p.cd = .2; this.msg('EMPTY — RIGHT CLICK TO THROW IT', 1400); return; }
+      p.weapon.ammo--; p.cd = w.cd;
+      for (let i = 0; i < w.pellets; i++) this.spawnBullet(p.x + Math.sin(p.ang) * .7, p.z + Math.cos(p.ang) * .7, p.ang + (Math.random() - .5) * w.spread, 24, 'p');
+      this.muzzle.position.set(p.x + Math.sin(p.ang) * .9, 1.4, p.z + Math.cos(p.ang) * .9); this.muzzle.intensity = 3;
+      A.burst(1400, .7, .18, .5); A.thump(.4); S.shake = .15;
+    }
+  },
+  throwOrPick() {
+    const p = this.p; if (!p.alive || S.paused) return;
+    if (p.weapon) {
+      const m = makeWeaponMesh(p.weapon.type); m.position.set(p.x, 1.2, p.z); world.add(m);
+      this.thrown.push({ m, x: p.x + Math.sin(p.ang) * .5, z: p.z + Math.cos(p.ang) * .5, vx: Math.sin(p.ang) * 16, vz: Math.cos(p.ang) * 16, type: p.weapon.type, ammo: p.weapon.ammo, life: 1.2 });
+      p.weapon = null; this.setHeld(null); this.burst = 1; A.burst(500, 1, .2, .2);
+    } else {
+      let best = null, bd = 1.4; this.pickups.forEach(k => { const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < bd) { bd = d; best = k; } });
+      if (best) { p.weapon = { type: best.type, ammo: best.ammo }; this.setHeld(best.type); world.remove(best.g); world.remove(best.ring); this.pickups.splice(this.pickups.indexOf(best), 1); A.tone(900, .08, .06, 'square'); this.burst = .6; }
+    }
+  },
+  setHeld(type) { const h = this.pm.userData.hand; while (h.children.length) h.remove(h.children[0]); if (type) h.add(makeWeaponMesh(type)); },
+  kill(e, dir) {
+    if (!e.alive) return; e.alive = false; world.remove(e.g); this.kills++;
+    this.combo = this.comboT > 0 ? this.combo + 1 : 1; this.comboT = 3; this.score += 100 * this.combo;
+    const col = e.g.userData.color, sm = new T.MeshLambertMaterial({ color: col, emissive: col === 0x3adf5a ? 0x0a4a14 : 0x500808, flatShading: true, transparent: true, opacity: 1 });
+    for (let i = 0; i < 18; i++) {
+      const sh = new T.Mesh(new T.TetrahedronGeometry(rnd(.06, .16)), sm); sh.position.set(e.x + rnd(-.2, .2), rnd(.4, 1.8), e.z + rnd(-.2, .2)); world.add(sh);
+      const a = dir + rnd(-.9, .9), sp = rnd(2, 7); this.shards.push({ m: sh, mat: sm, vx: Math.sin(a) * sp, vy: rnd(1, 5), vz: Math.cos(a) * sp, rx: rnd(-9, 9), rz: rnd(-9, 9), life: 1.6 });
+    }
+    const dec = new T.Mesh(new T.CircleGeometry(rnd(.5, .9), 12), new T.MeshBasicMaterial({ color: e.type === 'verdant' ? 0x2a8a2a : 0x7a0a1a, transparent: true, opacity: .8 }));
+    dec.rotation.x = -Math.PI / 2; dec.position.set(e.x + Math.sin(dir) * .4, .02, e.z + Math.cos(dir) * .4); dec.scale.set(1, rnd(.6, 1.6), 1); world.add(dec);
+    if (e.weapon) this.addPickup(e.x, e.z, e.weapon);
+    A.burst(3200, .5, .35, .35); [1800, 2600, 3500].forEach((f, i) => A.tone(f * rnd(.9, 1.1), .25, .04, 'triangle', i * .03)); A.thump(.5);
+    this.burst = Math.max(this.burst, .5);
+    if (this.enemies.every(x => !x.alive)) { this.cleared = true; this.msg('FLOOR CLEAR — GET TO THE EXIT', 3000); A.chime(); }
+  },
+  spark(x, z, color) { for (let i = 0; i < 5; i++) { const sm = new T.MeshBasicMaterial({ color, transparent: true }); const sh = new T.Mesh(new T.TetrahedronGeometry(.05), sm); sh.position.set(x, 1.3, z); world.add(sh); const a = rnd(0, 6.28); this.shards.push({ m: sh, mat: sm, vx: Math.sin(a) * 3, vy: rnd(0, 2), vz: Math.cos(a) * 3, rx: 5, rz: 5, life: .4 }); } },
+  die() {
+    const p = this.p; if (!p.alive) return; p.alive = false; this.deaths++; S.flash = .7; A.sting(.8);
+    this.pm.rotation.x = -Math.PI / 2; this.pm.position.y = .25;
+    const dec = new T.Mesh(new T.CircleGeometry(1, 14), new T.MeshBasicMaterial({ color: 0x5a0a14, transparent: true, opacity: .85 })); dec.rotation.x = -Math.PI / 2; dec.position.set(p.x, .02, p.z); world.add(dec);
+    this.msg('YOU WOKE UP — PRESS R OR CLICK TO DREAM IT AGAIN');
+  },
+  restart() { this.score = this.levelScore; this.loadLevel(this.level); },
+  next() {
+    if (this.level + 1 < CMAPS.length) { this.msg('BREATHE.', 900); setTimeout(() => { if (S.chapter === 6) { this.msg('BREATHE.', 900); } }, 1000); setTimeout(() => { if (S.chapter === 6) this.loadLevel(this.level + 1); }, 2000); this.exit = { x: 1e9, z: 1e9 }; return; }
+    const bonus = Math.max(0, Math.round(3000 - this.clock * 12)), total = this.score + bonus - this.deaths * 200;
+    const grade = total > 4200 ? 'S' : total > 3200 ? 'A' : total > 2200 ? 'B' : 'C';
+    this.exit = { x: 1e9, z: 1e9 }; S.fadeTarget = 0;
+    setTimeout(() => showEnd(`COMBAT SESSION CLEAR — grade <b>${grade}</b><br>score ${this.score} + time bonus ${bonus} − deaths ${this.deaths}×200 = <b>${total}</b><br>kills ${this.kills} · ${this.clock.toFixed(1)} s<br><br>M's voice, at your frequency: "Good. Now do it awake."`), 1200);
+  },
+  update(dt) {
+    const p = this.p; S.sanity = 1; S.insanBase = .04; S.scrape = 0; S.wind = .02;
+    this.clock += dt;
+    // Superhot: time scale follows how much you move (and spikes when you act)
+    const mv = p.alive ? Math.hypot(p.vx, p.vz) / 5.6 : 0;
+    if (mouseMoved) { this.burst = Math.max(this.burst, .12); mouseMoved = 0; }
+    const tgt = p.alive ? clamp(.05 + mv * .95 + this.burst, .05, 1) : .02;
+    this.ts = lerp(this.ts, tgt, clamp(dt * 12, 0, 1)); this.burst = Math.max(0, this.burst - dt * 3.5);
+    const sdt = dt * this.ts;
+    // player
+    if (p.alive) {
+      let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
+      if (keys.ArrowRight) mx += 1; if (keys.ArrowLeft) mx -= 1; if (keys.ArrowDown) mz += 1; if (keys.ArrowUp) mz -= 1;
+      const l = Math.hypot(mx, mz) || 1, sp = 5.6;
+      p.vx = lerp(p.vx, mx / l * sp * (mx || mz ? 1 : 0), clamp(dt * 14, 0, 1)); p.vz = lerp(p.vz, mz / l * sp * (mx || mz ? 1 : 0), clamp(dt * 14, 0, 1));
+      p.x += p.vx * dt; p.z += p.vz * dt; resolve(p, p.r);
+      const aim = this.aimPoint(); if (aim) p.ang = Math.atan2(aim.x - p.x, aim.z - p.z);
+      p.cd = Math.max(0, p.cd - sdt); p.swing = Math.max(0, p.swing - dt);
+      this.pm.position.set(p.x, Math.abs(Math.sin(this.clock * 12)) * .05 * mv, p.z); this.pm.rotation.y = p.ang;
+      const u = this.pm.userData; u.arm.rotation.y = p.swing > 0 ? Math.sin((1 - p.swing / .22) * Math.PI) * -1.4 + .7 : 0;
+      if (this.cleared && Math.hypot(p.x - this.exit.x, p.z - this.exit.z) < .9) this.next();
+    }
+    this.halo.position.set(p.x, 2.2, p.z); this.muzzle.intensity = Math.max(0, this.muzzle.intensity - dt * 40);
+    if (this.exitPad) { this.exitPad.material.color.set(this.cleared ? (Math.sin(this.clock * 8) > 0 ? CMAPS[this.level].glow : 0xffffff) : 0x333333); this.exitLight.intensity = this.cleared ? 2 : 0; }
+    // enemies
+    this.enemies.forEach(e => {
+      if (!e.alive) return;
+      const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 1, los = p.alive && d < 17 && !losBlocked(e.x, e.z, p.x, p.z);
+      if (los) { e.lastX = p.x; e.lastZ = p.z; }
+      if (e.state === 'idle') { e.ang += Math.sin(this.clock * .5 + e.bob) * sdt * .4; if (los && d < 12.5) { e.state = 'alert'; e.react = e.type === 'gunner' ? .5 : .25; A.tone(e.type === 'verdant' ? 300 : 520, .15, .05, 'square'); } }
+      else {
+        e.react -= sdt; e.cd -= sdt;
+        const want = Math.atan2(e.lastX - e.x, e.lastZ - e.z); let da = want - e.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); e.ang += clamp(da, -8 * sdt, 8 * sdt);
+        let speed = 0;
+        if (e.type === 'gunner') {
+          if (los && e.react <= 0) { if (e.cd <= 0 && Math.abs(da) < .25) { const sg = e.weapon === 'shotgun'; for (let i = 0; i < (sg ? 5 : 1); i++) this.spawnBullet(e.x + Math.sin(e.ang) * .7, e.z + Math.cos(e.ang) * .7, e.ang + (Math.random() - .5) * (sg ? .35 : .06), 11, 'e'); e.cd = sg ? 1.7 : 1.15; A.burst(1100, .7, .15, .3); } }
+          else speed = 2.6;
+        } else {
+          speed = e.type === 'verdant' ? 2.0 : 3.5;
+          if (e.type === 'verdant' && los && d > 3 && e.cd <= 0 && e.react <= 0) { this.spawnBullet(e.x, e.z, e.ang, 7, 'e', 'spore'); e.cd = 2.4; A.burst(400, 2, .25, .2); }
+          if (d < 1.05 && p.alive && e.react <= 0) { e.wind += sdt; speed = 0; if (e.wind > .28) this.die(); } else e.wind = Math.max(0, e.wind - sdt);
+        }
+        if (Math.hypot(e.lastX - e.x, e.lastZ - e.z) < .4 && !los) speed = 0;
+        if (speed > 0) {
+          let mvA = e.ang; if (e.sideT > 0) { mvA += e.side * 1.3; e.sideT -= sdt; }
+          const ox = e.x, oz = e.z; e.x += Math.sin(mvA) * speed * sdt; e.z += Math.cos(mvA) * speed * sdt; resolve(e, e.r);
+          const moved = Math.hypot(e.x - ox, e.z - oz); if (sdt > .001 && moved < speed * sdt * .3 && e.sideT <= 0) { e.side = Math.random() < .5 ? -1 : 1; e.sideT = .5; }
+          e.bob += sdt * 10;
+        }
+        e.g.userData.arm.rotation.x = e.wind > 0 ? -e.wind * 4 : 0;
+      }
+      e.g.position.set(e.x, Math.abs(Math.sin(e.bob)) * .05, e.z); e.g.rotation.y = e.ang;
+    });
+    // bullets (time-scaled)
+    for (let i = this.bullets.length - 1; i >= 0; i--) {
+      const b = this.bullets[i]; b.x += b.vx * sdt; b.z += b.vz * sdt; b.life -= sdt; b.m.position.set(b.x, 1.3, b.z);
+      let dead = b.life <= 0;
+      if (!dead) for (const c of colliders) if (c.on && !c.low && b.x > c.x0 && b.x < c.x1 && b.z > c.z0 && b.z < c.z1) { dead = true; this.spark(b.x, b.z, 0xffd080); break; }
+      if (!dead && b.owner === 'p') for (const e of this.enemies) if (e.alive && Math.hypot(e.x - b.x, e.z - b.z) < .45) { this.kill(e, Math.atan2(b.vx, b.vz)); dead = true; break; }
+      if (!dead && b.owner === 'e' && p.alive && Math.hypot(p.x - b.x, p.z - b.z) < .36) { this.die(); dead = true; }
+      if (dead) { world.remove(b.m); this.bullets.splice(i, 1); }
+    }
+    // thrown weapons
+    for (let i = this.thrown.length - 1; i >= 0; i--) {
+      const t = this.thrown[i]; t.x += t.vx * sdt; t.z += t.vz * sdt; t.life -= sdt; t.m.position.set(t.x, 1.1, t.z); t.m.rotation.y += sdt * 20;
+      let stop = t.life <= 0;
+      for (const c of colliders) if (c.on && !c.low && t.x > c.x0 - .1 && t.x < c.x1 + .1 && t.z > c.z0 - .1 && t.z < c.z1 + .1) { stop = true; t.x -= t.vx * sdt * 2; t.z -= t.vz * sdt * 2; break; }
+      for (const e of this.enemies) if (e.alive && Math.hypot(e.x - t.x, e.z - t.z) < .55) { this.kill(e, Math.atan2(t.vx, t.vz)); stop = true; break; }
+      if (stop) { world.remove(t.m); this.addPickup(t.x, t.z, t.type, t.ammo); this.thrown.splice(i, 1); A.thump(.3); }
+    }
+    // shards
+    for (let i = this.shards.length - 1; i >= 0; i--) {
+      const s2 = this.shards[i]; s2.vy -= 9 * sdt; s2.m.position.x += s2.vx * sdt; s2.m.position.y = Math.max(.05, s2.m.position.y + s2.vy * sdt); s2.m.position.z += s2.vz * sdt;
+      s2.m.rotation.x += s2.rx * sdt; s2.m.rotation.z += s2.rz * sdt; s2.life -= sdt; s2.mat.opacity = clamp(s2.life / .6, 0, 1);
+      if (s2.life <= 0) { world.remove(s2.m); this.shards.splice(i, 1); }
+    }
+    this.pickups.forEach(k => { k.g.rotation.y += dt * 1.5; k.ring.material.opacity = .3 + Math.sin(this.clock * 4) * .2; });
+    this.comboT -= dt * Math.max(this.ts, .35); if (this.comboT <= 0) this.combo = 0;
+    // music: tempo and pitch follow time
+    this.beatT -= dt * (.15 + .85 * this.ts);
+    if (this.beatT <= 0) {
+      this.beatT = .26; const i = this.beatI++, bass = [55, 55, 65.4, 55, 73.4, 55, 82.4, 73.4][i % 8] * (.5 + .5 * this.ts + .5);
+      if (i % 2 === 0) A.thump(.35); A.tone(bass, .22, .06, 'sawtooth'); if (i % 2) A.burst(8000, .7, .03, .04 + .04 * this.ts);
+    }
+    // 2.5D camera with look-ahead toward the cursor
+    const aim = this.aimPoint() || new T.Vector3(p.x, 0, p.z), tx = p.x + (aim.x - p.x) * .22, tz = p.z + (aim.z - p.z) * .22;
+    camera.position.x = lerp(camera.position.x, tx, clamp(dt * 6, 0, 1)); camera.position.y = 13; camera.position.z = lerp(camera.position.z, tz + 7.5, clamp(dt * 6, 0, 1));
+    S.shake = Math.max(0, (S.shake || 0) - dt); camera.position.x += (Math.random() - .5) * S.shake; camera.position.z += (Math.random() - .5) * S.shake;
+    camera.lookAt(camera.position.x, 0, camera.position.z - 7.5); camera.fov = 50; camera.updateProjectionMatrix();
+    // HUD
+    const w = p.weapon ? WEAP[p.weapon.type].label + (WEAP[p.weapon.type].gun ? ' ' + p.weapon.ammo : '') : 'FISTS';
+    $('cbScore').textContent = this.score + ' PTS'; $('cbCombo').textContent = this.combo > 1 ? this.combo + 'x COMBO' : ''; $('cbWeapon').textContent = w;
+    $('cbTime').firstElementChild.style.width = (this.ts * 100).toFixed(0) + '%';
+    post.mat.uniforms.listen.value = (1 - this.ts) * .22;
+  },
+};
+const chapters = [ch0, ch1, ch2, ch3, ch4, chOffice, chCombat];
 
 function goChapter(i) {
   S.chapter = i; currentCh = chapters[i];
@@ -1076,6 +1378,7 @@ function goChapter(i) {
   S.scrape = 0; S.wading = false; S.spike = 0; S.input = true; S.fadeTarget = 1; S.sanity = Math.max(S.sanity, .7); S.flash = 0;
   A.stopBox(); torch.intensity = 1.7; lamp.intensity = 0; lamp.distance = 12;
   if (i !== 5) { $('office').classList.add('hidden'); S.seated = false; S.uiMode = false; document.body.classList.remove('office'); }
+  if (i !== 6) { $('combat').classList.add('hidden'); canvas.style.cursor = ''; document.body.classList.remove('combat'); }
   currentCh.build(); card(/^[IVX]+$/.test(currentCh.name[0]) ? `Chapter ${currentCh.name[0]}` : currentCh.name[0], currentCh.name[1]);
   const t = (s => s); if (location.hash !== '#ch=' + i) try { history.replaceState(null, '', '#ch=' + i); } catch (e) { /* ignore */ }
 }
@@ -1085,6 +1388,7 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return; keys[e.code] = true;
   if (e.code === 'KeyF' && S.running) { S.flashlightOn = !S.flashlightOn; A.burst(2000, 5, .04, .1); }
   if (e.code === 'KeyE' && S.running && S.input) useInteract();
+  if (S.chapter === 6 && S.running) { if (e.code === 'KeyR') chCombat.restart(); if (e.code === 'KeyE') chCombat.throwOrPick(); if (e.code === 'Escape') { S.paused = !S.paused; $('pause').classList.toggle('hidden', !S.paused); } }
   if (S.chapter === 5 && S.running) { if (e.code === 'Digit1') chOffice.decide('approve'); if (e.code === 'Digit2') chOffice.decide('deny'); if (e.code === 'Digit3' && chOffice.directive) chOffice.decide('refer'); }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
@@ -1111,7 +1415,10 @@ $('bApprove').addEventListener('click', () => chOffice.decide('approve'));
 $('bDeny').addEventListener('click', () => chOffice.decide('deny'));
 $('bRefer').addEventListener('click', () => chOffice.decide('refer'));
 $('sleepBtn').addEventListener('click', () => chOffice.leave());
-$('pause').addEventListener('click', () => { A.init(); $('pause').classList.add('hidden'); S.paused = false; lockPointer(); });
+$('pause').addEventListener('click', () => { A.init(); $('pause').classList.add('hidden'); S.paused = false; if (!S.uiMode) lockPointer(); });
+canvas.addEventListener('mousedown', e => { if (S.chapter !== 6 || !S.running || S.paused) return; A.init(); if (!chCombat.p.alive) { chCombat.restart(); return; } if (e.button === 0) chCombat.fire(); if (e.button === 2) chCombat.throwOrPick(); });
+canvas.addEventListener('contextmenu', e => { if (S.chapter === 6) e.preventDefault(); });
+$('combatBtn').addEventListener('click', e => { e.stopPropagation(); startGame(6); });
 $('end').addEventListener('click', () => { const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
 function showEnd(txt) { S.endShown = true; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
 
@@ -1151,23 +1458,24 @@ function movePlayer(dt) {
 function update(dt) {
   S.time += dt;
   S.spike = Math.max(0, S.spike - dt * .5); S.flash = Math.max(0, S.flash - dt * 1.6); S.tension = Math.max(0, S.tension - dt * .5);
-  S.listen = lerp(S.listen, keys.KeyR && S.running ? 1 : 0, clamp(dt * 5, 0, 1)); S.ring = Math.max(0, S.ring - dt * .006);
+  const combatMode = !!(currentCh && currentCh.combat);
+  S.listen = lerp(S.listen, keys.KeyR && S.running && !combatMode ? 1 : 0, clamp(dt * 5, 0, 1)); S.ring = Math.max(0, S.ring - dt * .006);
   if (S.listen > .5 && S.chapter !== 5) S.sanity = Math.max(0, S.sanity - dt * .008);
   const eyeT = keys.KeyQ && S.input ? 1 : 0; S.eye = lerp(S.eye, eyeT, clamp(dt * 9, 0, 1));
   S.fade = lerp(S.fade, S.fadeTarget, clamp(dt * (S.fadeTarget ? 1.5 : 4), 0, 1));
-  if (S.running) movePlayer(dt); else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
+  if (S.running) { if (!combatMode) movePlayer(dt); } else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
   if (currentCh) currentCh.update(dt);
   updaters.forEach(u => u(dt));
   updateGhost(dt); updateEchoes(dt);
-  if (session.mods.breath && S.chapter !== 5) { const b = Math.sin(S.time * .9); world.scale.set(1 + b * .012, 1 + Math.sin(S.time * .9 + 1) * .025, 1 + b * .012); } else world.scale.set(1, 1, 1);
+  if (session.mods.breath && S.chapter !== 5 && !combatMode) { const b = Math.sin(S.time * .9); world.scale.set(1 + b * .012, 1 + Math.sin(S.time * .9 + 1) * .025, 1 + b * .012); } else world.scale.set(1, 1, 1);
   const insan = clamp((1 - S.sanity) * .75 + S.insanBase + S.spike, 0, 1);
   S.insan = insan;
   // camera feel
-  camera.rotation.set(player.pitch, player.yaw, Math.sin(S.time * .7) * insan * .035 + (session.mods.tilt ? session.roll : 0));
-  camera.fov = (session.mods.long ? 88 : 72) + Math.sin(S.time * .5) * insan * 6 + S.spike * 6; camera.updateProjectionMatrix();
+  if (!combatMode) camera.rotation.set(player.pitch, player.yaw, Math.sin(S.time * .7) * insan * .035 + (session.mods.tilt ? session.roll : 0));
+  if (!combatMode) { camera.fov = (session.mods.long ? 88 : 72) + Math.sin(S.time * .5) * insan * 6 + S.spike * 6; camera.updateProjectionMatrix(); }
   torch.intensity = S.flashlightOn ? 1.7 * (insan > .4 && Math.random() < insan * .08 ? .1 : 1) : 0;
   torch.angle = .5 - insan * .12; if (session.mods.pulse) torch.intensity *= .72 + .28 * Math.sin(S.time * 5.3);
-  const U = post.mat.uniforms; U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = session.mods.hue ? S.time * .05 : 0;
+  const U = post.mat.uniforms; if (!combatMode) U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = session.mods.hue ? S.time * .05 : 0;
   U.tint.value.set(...(session.mods.red ? [1.3, .72, .66] : [1, 1, 1]));
   if (session.mods.neg) { session.negT -= dt; U.invert.value = session.negT < 0 ? 1 : 0; if (session.negT < -.35) { session.negT = rnd(14, 30); } } else U.invert.value = 0;
   target = S.running && S.input ? findTarget() : null;
@@ -1191,6 +1499,6 @@ S.chapter = 0; currentCh = ch0; ch0.build(); S.fade = 1; S.chapter = -1; $('card
 requestAnimationFrame(frame);
 
 // debug / test hooks
-window.__dream = { ch4, chOffice, session, newSession, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
+window.__dream = { ch4, chOffice, chCombat, session, newSession, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
 const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); }
 })();

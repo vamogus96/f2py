@@ -9,7 +9,7 @@ python3 -m http.server 8000     # then open http://localhost:8000
 ```
 (Opening `index.html` directly also works.) Use headphones.
 
-Debug: `index.html?debug#ch=2` jumps to a chapter (0 bedroom, 1 hallway, 5 Bureau, 2 house, 3 sleeper, 4 Verdant demo).
+Debug: `index.html?debug#ch=2` jumps to a chapter (0 bedroom, 1 hallway, 5 Bureau, 2 house, 3 sleeper, 4 Verdant demo, 6 combat sessions).
 Add `seed=1234` to the query string to replay a specific dream session.
 
 **The world and its story are in [`WORLD.md`](WORLD.md)**: the Oxygen Tax, inflation, the Concord Greening Loans that grow poor volunteers into crops, and Aurel's tinnitus resonance.
@@ -23,6 +23,9 @@ In the Oxygen Tax Bureau: click the buttons or press **1** approve · **2** deny
 - **Dream sessions:** each run rolls a seed with 1–5 strangeness modifiers (tilted horizon, child height, breathing walls, red tide, negative moon, double vision…). The seed is shown on the title screen, and **Reroll the dream** picks another.
 - **Tinnitus resonance:** a constant ringing that rises with fear. Hold **R** to tune into it. Colour drains and the sound ducks, and **empathy echoes** of the people you processed appear. Press **E** on an echo to hear it (+sanity). There are 10 to find.
 - **Waking: the Oxygen Tax Bureau:** a Papers, Please-style shift. Check permits, receipts, seals and Greening Loans against changing rules (two inflation hikes and Directive 7-C). Choices (citations, the mole) carry into the ending.
+
+- **Combat sessions (2.5D, Hotline Miami × Superhot):** click **Combat sessions** on the title screen. A top-down neon raid on three floors of a Concord clinic. Everyone dies in one hit, including you. **Time moves only when you move:** standing still nearly freezes bullets, and shooting or swinging lets time run briefly. Pick up and throw pipes, pistols and shotguns, swing a melee weapon to slice incoming bullets, and chain kills for combos. Restart a floor instantly with **R**. Enemy weapons and random enemies vary with the dream-session seed. Grade at the end (S/A/B/C).
+  Controls: WASD move · mouse aim · left click attack/shoot · right click or E throw / pick up · R restart · Esc pause.
 
 ## The dream
 0. **The Bedroom**: wind the music box. Something watches from the dark and leaves when you look.

@@ -59,6 +59,20 @@
   .stamp{position:absolute;top:28%;left:18%;font-size:30px;font-weight:bold;border:4px solid;padding:4px 14px;transform:rotate(-12deg);opacity:.85;pointer-events:none}
   .stamp.approve{color:#2f7a2a;border-color:#2f7a2a}.stamp.deny{color:#a0221a;border-color:#a0221a}.stamp.refer{color:#1f6a4a;border-color:#1f6a4a}
   b.neg{color:#ff7a6a}
+  .go.neon{border-color:#ff3aa088;color:#ff7ac8}
+  body.combat #dot,body.combat #san,body.combat #hint,body.combat #prompt{display:none}
+  #combat{position:fixed;inset:0;pointer-events:none;z-index:3;font-family:Impact,"Arial Black",sans-serif;font-style:italic;letter-spacing:.04em}
+  #combat.hidden{display:none}
+  #cbLevel{position:absolute;left:18px;top:14px;font-size:14px;color:#8fe8ff;text-shadow:0 0 8px #0ff8}
+  #cbScore{position:absolute;left:18px;top:36px;font-size:clamp(26px,4vw,44px);color:#ff3aa0;text-shadow:3px 3px 0 #3affe0}
+  #cbCombo{position:absolute;left:20px;top:clamp(70px,10vw,92px);font-size:22px;color:#fff36a;text-shadow:2px 2px 0 #ff3aa0}
+  #cbWeapon{position:absolute;right:18px;bottom:52px;font-size:clamp(20px,3vw,32px);color:#fff;text-shadow:3px 3px 0 #ff3aa0}
+  #cbTime{position:absolute;right:18px;bottom:30px;width:160px;height:6px;background:#ffffff22}
+  #cbTime i{display:block;height:100%;width:0;background:#ff3a3a}
+  #cbTime span{position:absolute;right:0;top:8px;font-size:11px;font-family:Georgia,serif;font-style:normal;opacity:.6;letter-spacing:.2em}
+  #cbMsg{position:absolute;left:50%;top:18%;transform:translateX(-50%) skewX(-8deg);font-size:clamp(22px,4.5vw,52px);color:#fff;text-shadow:4px 4px 0 #ff2244,-2px -2px 0 #3affe0;text-align:center;width:92vw;opacity:0;transition:opacity .25s}
+  #cbMsg.on{opacity:1}
+  #cbHelp{position:absolute;left:18px;bottom:14px;font-family:Georgia,serif;font-style:normal;font-size:11px;opacity:.45;line-height:1.6;max-width:70vw}
   @media (max-width:720px){#office{height:60vh}#ofBody{flex-direction:column}#ofRules,#ofActions{flex:none}#ofActions{flex-direction:row;flex-wrap:wrap}#ofActions button{flex:1}}
 </style>
 </head>
@@ -82,8 +96,18 @@
     <div class="go small" id="rerollBtn">Reroll the dream</div>
     <div class="go small" id="officeBtn">Waking: Oxygen Tax Bureau</div>
     <div class="go small green" id="demoBtn">Demo: The Verdant</div>
+    <div class="go small neon" id="combatBtn">Combat sessions (2.5D)</div>
   </div>
   <div class="keys">WASD move · Shift run · mouse look (arrows also work)<br>E interact · F flashlight · hold Q close your eyes · hold R listen to the ringing<br>Headphones recommended</div>
+</div>
+<div id="combat" class="hidden">
+  <div id="cbLevel"></div>
+  <div id="cbScore"></div>
+  <div id="cbCombo"></div>
+  <div id="cbWeapon"></div>
+  <div id="cbTime"><i></i><span>time</span></div>
+  <div id="cbMsg"></div>
+  <div id="cbHelp">WASD move · mouse aim · left click attack / shoot · right click or E throw / pick up · R restart · Esc pause<br>Time moves only when you move. Bullets kill in one hit, yours and theirs.</div>
 </div>
 <div id="office" class="hidden">
   <div id="ofTop"></div>

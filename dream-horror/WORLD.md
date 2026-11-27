@@ -39,6 +39,12 @@ A network of people who have seen the greenhouses from inside. Their courier, **
 because the Bureau stopped issuing seals to people like her. Letting her through earns a citation, and also a warm seed that
 hums at your frequency. The dream's ending changes if you helped her.
 
+## Lucid Raids (combat sessions)
+Some nights M finds Aurel's dream at his frequency and uses it as a training ground. In the dream the resistance rehearses raids on
+Concord clinics: Intake, the Greening Ward and the Nursery, where volunteers are potted. Breath is metered in the waking city,
+and in the raid **time only moves when you breathe**: stand still and the world holds its breath with you.
+Orderlies (red, crystalline), armed guards and half-grown Verdant shatter like glass. When you die you simply **wake up** and dream it again.
+
 ## Dream sessions
 Every playthrough dreams a different **strangeness**. A seed (shown on the title screen, set with `?seed=1234`) picks a
 level from 1 to 5 and that many distortions: Tilted Horizon, Child Height, Breathing Walls, Red Tide, Hue Drift,

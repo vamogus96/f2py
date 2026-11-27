@@ -129,3 +129,11 @@ Prototype: `chOffice` and the `APPS` table in `game.js`.
 - **Seeds:** `FRandomStream Stream(Seed);` makes every roll reproducible. Store the seed in a `UGameInstanceSubsystem` so it survives level changes.
 - **Strangeness:** each modifier is a scalar in a Material Parameter Collection (hue, invert, roll), read by your post-process material.
 - **Echoes:** actors whose material opacity is driven by a `ListenAmount` float, interactable only while `ListenAmount > 0.5`. Tinnitus is a MetaSound sine pair whose gain follows the same float.
+
+## Bonus lesson — combat sessions (2.5D, Hotline Miami × Superhot)
+Prototype: `chCombat` in `game.js`.
+- **Camera:** a `USpringArmComponent` with a fixed pitch (~-60°) and `bInheritYaw = false`, plus a look-ahead offset toward the cursor (`GetHitResultUnderCursor`).
+- **Superhot time:** each tick set `UGameplayStatics::SetGlobalTimeDilation(World, Lerp(0.05, 1, PlayerSpeed / MaxSpeed))`. Then set `CustomTimeDilation = 1 / GlobalDilation` on the player so they still move in real time. Add a short burst when they fire.
+- **One-hit kills:** a `UHealthComponent` with `MaxHealth = 1` and an `OnDeath` delegate. Swap the mesh for a **Chaos Geometry Collection** to get the glass shatter.
+- **Weapons as data:** `UPrimaryDataAsset` per weapon (range, arc, ammo, pellets, spread), with a `UFUNCTION(BlueprintCallable) Throw()` that spawns a projectile carrying the asset.
+- *Homework:* make enemy bullets slow projectiles (`UProjectileMovementComponent`) and let a melee swing destroy them, like the pipe in the prototype.
