@@ -1,5 +1,40 @@
 # Hollow Lullaby — World Bible
 
+## Timeline (after 2100)
+| Year | Event |
+|---|---|
+| 2100 | The **Concord Settlement** is founded. Years are counted from here ("Year 47" = **2147**). |
+| 2112 | The **Greening Loan** is introduced. The first volunteers are grown. |
+| 2131 | The **Automation Purge**: Concord replaces most licensed engineers with sealed, self-maintaining systems. The Ressel family, a line of shipwright-engineers, lose their jobs and their licences. |
+| 2139 | **Captain Teodor Ressel**, Aurel's father, dies at the helm of the void-galleon *Lullaby* in a fight at the boundary. Aurel was 12. |
+| 2147 | The present. Aurel inspects permits by day. His family survives on jobs, the bus, a pharmacy and a lathe. |
+
+## Fool Night and the city of Poors
+The world turned slowly into **tidally-locked days**: a permanent light side, where the Concord towers and clean air are, and **Fool Night**, the dark side.
+Between them lies **the boundary**, a twilight belt, and the city of **Poors** is bolted to the edge of it: a stack of decks and old freighters made of people with no licence, no loan they can repay and no air they can afford.
+Poors has no army. It has **the Free Fleet**: space pirates and mercenaries, sail-and-thruster galleons that raid Concord freight and sell salvage back to the city. Concord answers with the **Navy**, and hires the same Poors pilots as mercenaries when it is cheaper than losing ships.
+
+## Daytime in Poors (the family of engineers)
+The Ressels were engineers. Now:
+- **Low-level work:** Scrap Yard sorting (no skills; the bio crates are warm).
+- **Mid-level work:** Brass Dock Workshop orders on a lathe or at the PCB bench (need skill, pay by the part, leave spare parts).
+- **High-level work:** the Spire Tower contract (needs L2 in both trades, pays 50% because the licence was revoked in 2131).
+- **The bus:** timetable every 20 minutes, fares by distance, strikes, inspectors who fine you for unmetered coughing.
+- **Medicine and drugs:** the licensed pharmacy (Ilse's lung medicine), tinnitus drops, and the alley: counterfeit medicine (40% chalk), *Wake* (stimulant) and *Hush* (sedative, dreamless: you will not hear the echoes).
+- **Cooking:** the cheapest way to feed a family. Synth-rice, algae, vat-protein, or the free **Concord greens**, which taste like someone else's garden.
+- **The PCB bench and the lathe:** skills for work, and parts for **your ship**: fire-control boards and barrels.
+
+At night the budget decides who breathes. Then Aurel dreams.
+
+## The Captain's Watch
+Aurel's recurring dream of his father's last battle. First person, on the deck of the *Lullaby*, firing the port guns at a shielded raider, then crossing a grapple bridge to a ship whose crew turn to face you when you look away.
+The logbook he finds says to bring the ship home through Fool Night.
+
+## The Void skirmish
+The *Lullaby* waits at the Poors docks for a crew. Pirates and Navy mercenaries fight at the boundary: broadsides, boarding crippled ships for salvage, asteroids and the Poors station in the middle.
+Pilots choose a side, **pirate** (salvage share) or **Navy mercenary** (flat Concord pay), and the money goes to the family purse. It can be played alone against bots or online with up to 8 pilots per room.
+
+
 ## The city, Year 47 of the Concord
 The air went bad slowly and then all at once. The city survived by **metering breath**. Every citizen has an
 **Oxygen Permit** with a weekly quota in litres, and every litre is taxed. The **Bureau of Breath** collects the

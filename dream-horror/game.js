@@ -393,7 +393,7 @@ function addInteract(obj, label, onUse, r = 2.4) { const it = { obj, label, onUs
 /* Empathy echoes: people you failed, audible only at the frequency of your tinnitus. Hold R to listen. */
 const echoes = [], ECHO_TOTAL = 10;
 function addEcho(id, x, z, line) {
-  if (S.heard.has(id)) return;
+  if (S.heard.has(id) || S.noEchoes) return;
   const g = new T.Group(), m = new T.MeshBasicMaterial({ color: 0x8fe8ff, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false });
   cyl(.16, .25, 1.25, 0, .72, 0, m, 8, g); sph(.15, 0, 1.55, 0, m, g);
   [-1, 1].forEach(s => { const a = cyl(.05, .04, .75, s * .26, 1.0, 0, m, 5, g); a.rotation.z = s * .16; });
@@ -1063,7 +1063,7 @@ const chOffice = {
     later(3600, () => { if (S.chapter === 5) { $('ofDocs').innerHTML = ''; this.next(); } });
   },
   finish() {
-    if (this.finished) return; this.finished = true;
+    if (this.finished) return; this.finished = true; this.free = null; this.afterHouse = null; this.scale = 1; $('ofSummary').querySelector('h1').textContent = 'End of shift';
     S.ring = .035; S.flash = .6; A.sting(.9);
     this.wage = 400 + this.correct * 10 - this.cit * 15; this.savings = 260;
     $('sumBody').innerHTML = `Processed ${APPS.length} · correct ${this.correct} · citations ${this.cit}<br>
@@ -1075,9 +1075,16 @@ const chOffice = {
     later(1800, () => { $('office').classList.add('hidden'); $('ofSummary').classList.remove('hidden'); });
   },
   // ── household: pick a family member, decide what the money pays for ──
-  cost(f, k) { return k === 'o2' ? f.L * this.rate : k === 'food' ? f.food : f.med; },
+  beginHouse(o) {
+    this.rate = o.rate != null ? o.rate : this.rate; this.wage = o.wage; this.savings = o.savings || 0; this.free = o.free || null; this.afterHouse = o.after || null; this.scale = o.scale || 1;
+    $('ofSummary').querySelector('h1').textContent = o.title || 'End of day'; $('sumBody').innerHTML = o.summary || '';
+    this.house = { sel: 'aurel', rent: true, loan: false, seed: false, pay: {} };
+    FAMILY.forEach(f => this.house.pay[f.id] = { o2: true, food: true, med: f.med > 0 });
+    this.renderHouse(); $('office').classList.add('hidden'); $('ofSummary').classList.remove('hidden');
+  },
+  cost(f, k) { const sc = this.scale || 1; if (this.free) { if (k === 'food' && this.free.food.has(f.id)) return 0; if (k === 'med' && this.free.med) return 0; } return (k === 'o2' ? f.L * this.rate : k === 'food' ? f.food : f.med) * sc; },
   spend() {
-    const h = this.house; let t = h.rent ? 120 : 0;
+    const h = this.house; let t = h.rent ? 120 * (this.scale || 1) : 0;
     FAMILY.forEach(f => ['o2', 'food', 'med'].forEach(k => { if (h.pay[f.id][k] && !(k === 'o2' && h.seed && f.id === 'nora')) t += this.cost(f, k); }));
     return t;
   },
@@ -1096,7 +1103,7 @@ const chOffice = {
     $('famDetail').innerHTML = `<h3>${sel.name} <small>${sel.role}</small></h3><p>${sel.bio}</p>` +
       row('o2', `Oxygen ${sel.L} L × ${this.rate.toFixed(1)}`) + row('food', 'Food for the week') + (sel.med ? row('med', 'Lung medicine') : '');
     const fu = this.funds(), sp = this.spend(), left = fu - sp;
-    $('famHouse').innerHTML = `<div class="need"><span>Rent (the flat)</span><span>120 ₵</span><button data-h="rent" class="${h.rent ? 'on' : ''}">${h.rent ? 'Pay' : 'Skip'}</button></div>
+    $('famHouse').innerHTML = `<div class="need"><span>Rent (the flat)</span><span>${(120 * (this.scale || 1)).toFixed(0)} ₵</span><button data-h="rent" class="${h.rent ? 'on' : ''}">${h.rent ? 'Pay' : 'Skip'}</button></div>
       <div class="need loanrow"><span>Sign the Concord Greening Loan<br><small>+1200 ₵ · collateral: the biological estate of the borrower <b>and dependants</b></small></span><span></span><button data-h="loan" class="${h.loan ? 'on bad' : ''}">${h.loan ? 'Signed' : 'Sign'}</button></div>
       ${S.moleHelped ? `<div class="need"><span>Plant M's seed by Nora's bed<br><small>it breathes for her. Illegal.</small></span><span></span><button data-h="seed" class="${h.seed ? 'on' : ''}">${h.seed ? 'Planted' : 'Plant'}</button></div>` : ''}`;
     $('famTotals').innerHTML = `Funds <b>${fu.toFixed(1)} ₵</b> − spending <b>${sp.toFixed(1)} ₵</b> = <b class="${left < 0 ? 'neg' : 'pos'}">${left.toFixed(1)} ₵</b>${left < 0 ? '<br><small>You cannot spend money you do not have. Skip something, or sign.</small>' : ''}`;
@@ -1112,6 +1119,8 @@ const chOffice = {
   leave() {
     if (this.house && this.funds() - this.spend() < 0) { A.tone(200, .2, .1, 'square'); return; }
     const h = this.house; if (h) { S.family = { loan: h.loan, seed: h.seed, rent: h.rent, people: {} }; FAMILY.forEach(f => { const p = h.pay[f.id]; S.family.people[f.id] = { o2: p.o2 || (h.seed && f.id === 'nora'), food: p.food, med: f.med ? p.med : true }; }); }
+    S.carryMoney = Math.max(0, this.funds() - this.spend());
+    if (this.afterHouse) { const f = this.afterHouse; this.afterHouse = null; $('ofSummary').classList.add('hidden'); f(); return; }
     $('ofSummary').classList.add('hidden'); S.seated = false; S.uiMode = false; S.flashlightOn = true; document.body.classList.remove('office');
     goChapter(2); lockPointer();
     const fp = S.family && S.family.people;
@@ -1436,7 +1445,10 @@ function goChapter(i) {
   S.scrape = 0; S.wading = false; S.spike = 0; S.input = true; S.fadeTarget = 1; S.sanity = Math.max(S.sanity, .7); S.flash = 0;
   A.stopBox(); torch.intensity = 1.7; lamp.intensity = 0; lamp.distance = 12;
   if (i !== 5) { $('office').classList.add('hidden'); S.seated = false; S.uiMode = false; document.body.classList.remove('office'); }
-  if (i !== 6) { $('combat').classList.add('hidden'); canvas.style.cursor = ''; document.body.classList.remove('combat'); }
+  if (i !== 6) $('combat').classList.add('hidden');
+  if (!chapters[i].combat) { canvas.style.cursor = ''; document.body.classList.remove('combat'); }
+  post.mat.uniforms.listen.value = 0; post.mat.uniforms.invert.value = 0;
+  (HL.cleanups || []).forEach(f => f(i));
   currentCh.build(); card(/^[IVX]+$/.test(currentCh.name[0]) ? `Chapter ${currentCh.name[0]}` : currentCh.name[0], currentCh.name[1]);
   const t = (s => s); if (location.hash !== '#ch=' + i) try { history.replaceState(null, '', '#ch=' + i); } catch (e) { /* ignore */ }
 }
@@ -1463,7 +1475,7 @@ document.addEventListener('mousemove', e => {
 function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
 function startGame(ch = 0) {
   A.init(); $('menu').classList.add('hidden'); $('pause').classList.add('hidden'); $('end').classList.add('hidden'); S.endShown = false;
-  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; S.heard = new Set(); S.moleHelped = false; S.citations = 0; S.family = null; goChapter(ch); } S.paused = false; if (!S.uiMode) lockPointer();
+  if (!S.running) { S.running = true; S.sanity = 1; S.startCh = ch; S.heard = new Set(); S.moleHelped = false; S.citations = 0; S.family = null; S.fromDay = false; S.dayStarted = false; S.day = null; S.carryMoney = null; S.noEchoes = false; goChapter(ch); } S.paused = false; if (!S.uiMode) lockPointer();
 }
 $('menu').addEventListener('click', () => startGame(0));
 $('demoBtn').addEventListener('click', e => { e.stopPropagation(); startGame(4); });
@@ -1478,21 +1490,21 @@ $('pause').addEventListener('click', () => { A.init(); $('pause').classList.add(
 canvas.addEventListener('mousedown', e => { if (S.chapter !== 6 || !S.running || S.paused) return; A.init(); if (!chCombat.p.alive) { chCombat.restart(); return; } if (e.button === 0) chCombat.fire(); if (e.button === 2) chCombat.throwOrPick(); });
 canvas.addEventListener('contextmenu', e => { if (S.chapter === 6) e.preventDefault(); });
 $('combatBtn').addEventListener('click', e => { e.stopPropagation(); startGame(6); });
-$('end').addEventListener('click', () => { const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
-function showEnd(txt) { S.endShown = true; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}${S.family ? ' · family: ' + FAMILY.map(f => { const q = S.family.people[f.id]; return f.name + (q.o2 && q.food && q.med ? ' ✓' : ' ✗'); }).join(' ') + (S.family.loan ? ' · loan signed' : '') : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
+$('end').addEventListener('click', () => { if (S.fromDay && HL.idx.day != null) { S.endShown = false; $('end').classList.add('hidden'); S.fade = 1; S.fadeTarget = 1; S.paused = false; goChapter(HL.idx.day); return; } const c = S.startCh || 0; S.running = false; S.sanity = 1; S.endShown = false; S.fade = 1; S.fadeTarget = 1; startGame(c); });
+function showEnd(txt) { S.endShown = true; $('endBtn').textContent = S.fromDay ? 'Wake up — next day' : 'Click to dream again'; $('endtxt').innerHTML = (txt || 'The dream remembers you. It will be here when you close your eyes.') + `<br><br><small>Dream session #${session.seed} (${session.names.join(', ')}) · echoes heard ${S.heard.size}/${ECHO_TOTAL} · citations ${S.citations}${S.moleHelped ? ' · you let M through' : ''}${S.family ? ' · family: ' + FAMILY.map(f => { const q = S.family.people[f.id]; return f.name + (q.o2 && q.food && q.med ? ' ✓' : ' ✗'); }).join(' ') + (S.family.loan ? ' · loan signed' : '') : ''}</small>`; $('end').classList.remove('hidden'); try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
 
 function useInteract() {
   const it = target; if (it) it.onUse();
 }
 let target = null;
 function findTarget() {
-  const f = fwdVec(); let best = null, bd = .9;
+  const f = fwdVec(); let best = null, bd = -1;
   for (const it of interactables) {
     if (!it.on || (it.cond && !it.cond())) continue;
     const o = it.obj.getWorldPosition ? it.obj.getWorldPosition(new T.Vector3()) : it.obj.position;
     const dx = o.x - player.x, dy = o.y - camera.position.y, dz = o.z - player.z, d = Math.hypot(dx, dy, dz);
     if (d > it.r) continue; const dot = (dx * f.x + dy * f.y + dz * f.z) / d;
-    if (dot > bd) { bd = dot; best = it; }
+    if (dot > (d < 2 ? .6 : .9) && dot > bd) { bd = dot; best = it; }
   }
   return best;
 }
@@ -1522,7 +1534,7 @@ function update(dt) {
   if (S.listen > .5 && S.chapter !== 5) S.sanity = Math.max(0, S.sanity - dt * .008);
   const eyeT = keys.KeyQ && S.input ? 1 : 0; S.eye = lerp(S.eye, eyeT, clamp(dt * 9, 0, 1));
   S.fade = lerp(S.fade, S.fadeTarget, clamp(dt * (S.fadeTarget ? 1.5 : 4), 0, 1));
-  if (S.running) { if (!combatMode) movePlayer(dt); } else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
+  if (S.running) { if (!combatMode) { movePlayer(dt); if (S.shake > 0) { S.shake = Math.max(0, S.shake - dt); camera.position.x += (Math.random() - .5) * S.shake * .35; camera.position.y += (Math.random() - .5) * S.shake * .35; } } } else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
   if (currentCh) currentCh.update(dt);
   updaters.forEach(u => u(dt));
   updateGhost(dt); updateEchoes(dt);
@@ -1547,7 +1559,7 @@ function update(dt) {
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  if (!S.paused) update(dt);
+  if (!S.paused) { try { update(dt); } catch (err) { if (!frame.warned) { frame.warned = true; console.error('update error', err); } } }
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(post.scene, post.cam);
   requestAnimationFrame(frame);
@@ -1558,6 +1570,13 @@ S.chapter = 0; currentCh = ch0; ch0.build(); S.fade = 1; S.chapter = -1; $('card
 requestAnimationFrame(frame);
 
 // debug / test hooks
+window.HL = {
+  T, S, A, $, rnd, clamp, lerp, pick, mkCanvas, noise, mulberry, texWood, texNoise, texChecker, texWall, session, canvas, keys, mouseNDC, camera, scene, renderer, post, amb, moon, torch,
+  mat, tmat, box, cyl, sph, slab, wallBox, pointLight, clearWorld, addInteract, colliders, interactables, updaters, resolve, losBlocked, makeFighter, makeWatcher, makeDoor, animateDoor, canSee,
+  say, card, later, showEnd, goChapter, startGame, lockPointer, chOffice, FAMILY, player, watcher, addEcho,
+  get world() { return world; }, idx: {}, cleanups: [],
+  registerChapter(name, ch) { chapters.push(ch); this.idx[name] = chapters.length - 1; return chapters.length - 1; },
+};
 window.__dream = { ch4, chOffice, chCombat, session, newSession, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
 const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); }
 })();

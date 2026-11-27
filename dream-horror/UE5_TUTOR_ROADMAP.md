@@ -137,3 +137,19 @@ Prototype: `chCombat` in `game.js`.
 - **One-hit kills:** a `UHealthComponent` with `MaxHealth = 1` and an `OnDeath` delegate. Swap the mesh for a **Chaos Geometry Collection** to get the glass shatter.
 - **Weapons as data:** `UPrimaryDataAsset` per weapon (range, arc, ammo, pellets, spread), with a `UFUNCTION(BlueprintCallable) Throw()` that spawns a projectile carrying the asset.
 - *Homework:* make enemy bullets slow projectiles (`UProjectileMovementComponent`) and let a melee swing destroy them, like the pipe in the prototype.
+
+## Bonus lesson — multiplayer naval battle (replication)
+Prototype: `naval.js` + `server.js`. In the prototype the relay is dumb and **the player who is hit decides the damage**. In UE5 the server is the authority instead.
+- **Authority model:** `HasAuthority()` is true on the server. Only the server applies damage (`ApplyDamage`), spawns projectiles and changes score. Clients send *intent* and only show the result.
+- **Replicated state:** mark ship fields `UPROPERTY(Replicated)` and list them in `GetLifetimeReplicatedProps` with `DOREPLIFETIME(AShip, Health);`. For one-time reactions to a change use `ReplicatedUsing=OnRep_Health`.
+- **RPCs (intent):** `UFUNCTION(Server, Reliable) void ServerFire(bool bStarboard);` is called on the client and runs on the server. The server then spawns a replicated `AShell` actor (`bReplicates = true`). Use `Unreliable` for things like steering input sent every frame.
+- **Smooth movement:** use a `UFloatingPawnMovement` or `UCharacterMovementComponent`; they already do client prediction. For free-flight ships, replicate position at ~15 Hz and interpolate, exactly as `chNaval` does with `lerp(s.x, s.tx, …)`.
+- **Teams and scoring:** keep kills in `AGameState` (`UPROPERTY(Replicated) int32 PirateScore, NavyScore;`) and use `AGameMode::EndMatch`.
+- **Testing:** *Play → Number of Players = 2, Net Mode = Play as Client* runs a dedicated server plus two clients in the editor.
+- *Homework:* replace the prototype's "victim reports the kill" with a server-side `TakeDamage` and compare how a cheater could abuse each design.
+
+## Bonus lesson — the day planner (systems design)
+Prototype: `day.js`. A day is a **budget of two resources** (time and energy) spent on activities that convert them to money, parts and skill.
+- Model each activity as a `UDataAsset` or a data-table row (`FActivityRow`: `Location`, `Minutes`, `Energy`, `Pay`, `RequiredSkill`). Designers can add jobs without code.
+- Keep the simulation in a `UGameInstanceSubsystem` (`UDayPlannerSubsystem`) and the UI in UMG. The UI reads state via delegates, so it never polls.
+- Mini-games (PCB routing, lathe, cooking) are small self-contained classes that return a **result struct** (`FMinigameResult { float Quality; bool bSuccess; }`) to the planner. Write them so they can be unit-tested without the UI.

@@ -3,13 +3,24 @@
 Single-page Three.js game. Textures, models and audio are all procedural, so there are no assets to download.
 
 ## Run
+**Everything except online play** works from any static server or by opening `index.html`.
+**Online multiplayer** needs the bundled relay (it also serves the game):
+```
+cd dream-horror
+npm install        # installs `ws`
+node server.js     # http://localhost:8787  (set PORT=… to change)
+```
+Open `http://<host>:8787` on every machine, click **Void battle**, choose a side, enter the same room name and **Join online**.
+Up to 8 pilots per room. The relay only forwards messages (no anti-cheat); hits are decided by the player who is hit.
+
+Other ways to run the static game:
 ```
 cd dream-horror
 python3 -m http.server 8000     # then open http://localhost:8000
 ```
 (Opening `index.html` directly also works.) Use headphones.
 
-Debug: `index.html?debug#ch=2` jumps to a chapter (0 bedroom, 1 hallway, 5 Bureau, 2 house, 3 sleeper, 4 Verdant demo, 6 combat sessions).
+Debug: `index.html?debug#ch=2` jumps to a chapter (0 bedroom, 1 hallway, 5 Bureau, 2 house, 3 sleeper, 4 Verdant demo, 6 combat sessions, 7 daytime, 8 pirate dream, 9 void battle).
 Add `seed=1234` to the query string to replay a specific dream session.
 
 **The world and its story are in [`WORLD.md`](WORLD.md)**: the Oxygen Tax, inflation, the Concord Greening Loans that grow poor volunteers into crops, and Aurel's tinnitus resonance.
@@ -18,6 +29,20 @@ Add `seed=1234` to the query string to replay a specific dream session.
 WASD move · Shift run · mouse look (arrow keys also work) · **E** interact · **F** flashlight · hold **Q** close your eyes · hold **R** listen (tinnitus)
 
 In the Oxygen Tax Bureau: click the buttons or press **1** approve · **2** deny · **3** refer.
+
+## 2147: Poors, Fool Night and the space pirates
+Timeline after 2100: the **Concord** was founded in 2100 (Year 47 = 2147). The Ressel family were engineers until the **2131 Automation Purge**.
+They now live in **Poors**, a city bolted to the twilight boundary of **Fool Night**, defended only by Free Fleet pirates and mercenaries. See [`WORLD.md`](WORLD.md).
+
+- **Daytime: the Ressels (menu button).** Plan a day from 06:00 to the 22:00 curfew:
+  - **Jobs by level:** *low* scrap sorting (no skills), *medium* lathe orders and PCB repairs (need L1), *high* Spire Tower engineering contract (L2 in both, 50% pay without a licence).
+  - **The bus:** departures every 20 min, fares by distance, strikes, fines. Or walk.
+  - **Pharmacy and the alley:** licensed lung medicine, tinnitus drops, counterfeit medicine (40% chalk), *Wake* stimulants, *Hush* sedatives that silence tonight's echoes.
+  - **Cooking:** a heat-control mini-game turns cheap ingredients (or the free, eerie Concord greens) into meals that cover the family's food.
+  - **PCB bench:** route traces without crossing. **Lathe:** turn a shaft to size within tolerance. Both give XP and spare parts.
+  - At 22:00 the money goes to the **household table** (one day of the family's costs), then Aurel dreams.
+- **Dream: the Captain's Watch.** First-person on the deck of the void-galleon *Lullaby* in battle: fire the port cannons until the shield bursts, grapple the raider, cross the bridge, take the logbook.
+- **Void battle (solo or online).** Top-down space naval combat at the Poors boundary. Pick **Poors Free Fleet** (pirates, salvage share) or **Concord Navy** (mercenary contract). Broadsides, boost, asteroids, a central station. **Cripple a ship and board it** (hold F). First fleet to 15 kills wins; the payout goes to the family purse. Boards and barrels you crafted give your ship faster reloads, tighter spread, more damage.
 
 ## New systems
 - **Dream sessions:** each run rolls a seed with 1–5 strangeness modifiers (tilted horizon, child height, breathing walls, red tide, negative moon, double vision…). The seed is shown on the title screen, and **Reroll the dream** picks another.
