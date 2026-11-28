@@ -88,3 +88,8 @@ The game's **own** licence has not been chosen yet: see [`docs/LICENSING.md`](do
 - **Reduced motion:** `?calm=1` or the operating system's "reduce motion" setting turns off camera roll, FOV kicks, shake and breathing walls.
 - **Adaptive resolution:** the render scale lowers to protect the frame rate and recovers when there is headroom. `?quality=high` pins it.
 - **Development log:** [`DEVLOG.md`](DEVLOG.md) records every request and what was done about it.
+
+## The Tower raid: cyberpsychosis in Turin (Hotline-style combat)
+Menu: **Torino: Arasaka Tower raid**, or the *Resistance contract* at the Arasaka Tower in the daytime hub. Four floors of one-hit-kill, real-time, top-down combat with guards who **see** (vision cones) and **hear** (gunshots), **doors** that stun, bats and thrown items that **knock down** so you can **execute**, combos and style scoring, and instant restart with **R**.
+The "masks" are **cybernetic improvements** bought by Turin's rich (and by you at the Poors ripperdoc): Mantis blades, Optic grid, Reflex booster, Sandevistan burst, Subdermal plating. Each adds **cyberpsychosis**: glitches, body episodes that invert your controls, and a score multiplier for the risk.
+Controls: WASD · mouse aim · LMB attack/shoot (click a downed guard to execute) · RMB or E throw / pick up · hold Space to look ahead · Shift dash (Sandevistan) · R restart · Esc pause. `npm run test:maps` validates the floors. See `WORLD.md` and `docs/LICENSING.md` (trademarks).

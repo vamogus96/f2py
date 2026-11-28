@@ -1433,7 +1433,7 @@ const chCombat = {
 const chapters = [ch0, ch1, ch2, ch3, ch4, chOffice, chCombat];
 
 function goChapter(i) {
-  clearTimeout(subTimer); $('sub').classList.remove('on');
+  clearTimeout(subTimer); $('sub').classList.remove('on'); S.hueExtra = 0;
   S.chapter = i; currentCh = chapters[i];
   clearWorld(); watcher.g = null; watcher.active = false; ghost.g && (ghost.g.visible = false);
   S.scrape = 0; S.wading = false; S.spike = 0; S.input = true; S.fadeTarget = 1; S.sanity = Math.max(S.sanity, .7); S.flash = 0;
@@ -1541,7 +1541,7 @@ function update(dt) {
   if (!combatMode) { camera.fov = (session.mods.long ? 88 : 72) + (S.calm ? 0 : Math.sin(S.time * .5) * insan * 6 + S.spike * 6); camera.updateProjectionMatrix(); }
   torch.intensity = S.flashlightOn ? 1.7 * (insan > .4 && Math.random() < insan * .08 ? .1 : 1) : 0;
   torch.angle = .5 - insan * .12; if (session.mods.pulse) torch.intensity *= .72 + .28 * Math.sin(S.time * 5.3);
-  const U = post.mat.uniforms; if (!combatMode) U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = session.mods.hue ? S.time * .05 : 0;
+  const U = post.mat.uniforms; if (!combatMode) U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = (session.mods.hue ? S.time * .05 : 0) + (S.hueExtra || 0);
   U.tint.value.set(...(session.mods.red ? [1.3, .72, .66] : [1, 1, 1]));
   if (session.mods.neg) { session.negT -= dt; U.invert.value = session.negT < 0 ? 1 : 0; if (session.negT < -.35) { session.negT = rnd(14, 30); } } else U.invert.value = 0;
   target = S.running && S.input ? findTarget() : null;
@@ -1562,7 +1562,7 @@ function adaptQuality(ms) {   // dynamic resolution: trade pixels for frame rate
 }
 function frame(now) {
   const frameDt = (now - last) / 1000; last = now;
-  if (!S.paused) S.steps = stepper.advance(frameDt, step => { try { update(step); } catch (err) { if (!frame.warned) { frame.warned = true; console.error('update error', err); } } });
+  if (!S.paused && !S.frozen) S.steps = stepper.advance(frameDt, step => { try { update(step); } catch (err) { if (!frame.warned) { frame.warned = true; console.error('update error', err); } } });
   adaptQuality(frameDt * 1000);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(post.scene, post.cam);

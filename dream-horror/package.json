@@ -7,7 +7,8 @@
     "start": "node server.js",
     "check:licenses": "node scripts/check-licenses.js",
     "test:physics": "node scripts/test-physics.js",
-    "test": "npm run test:physics && npm run check:licenses"
+    "test": "npm run test:physics && npm run test:maps && npm run check:licenses",
+    "test:maps": "node scripts/test-maps.js"
   },
   "dependencies": {
     "ws": "^8.18.0"

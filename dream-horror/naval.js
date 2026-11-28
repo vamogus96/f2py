@@ -417,5 +417,4 @@ $('nrMenu').addEventListener('click', () => { payout(); location.reload(); });
 const pb = $('pirateBtn'); if (pb) pb.addEventListener('click', e => { e.stopPropagation(); S.fromDay = false; HL.startGame(HL.idx.pirate); });
 const nb = $('navalBtn'); if (nb) nb.addEventListener('click', e => { e.stopPropagation(); HL.startGame(HL.idx.naval); });
 HL.naval = { chPirate, chNaval, Net, FAC, begin(o) { chNaval.autostart = null; HL.goChapter(HL.idx.naval); } };
-HL.debugBoot();
 })();

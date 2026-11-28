@@ -21,6 +21,12 @@ New exchanges are appended at the bottom. Commit hashes refer to `git log -- dre
 | 13 | "Check screens from all kind of gameplay mechanics then improve the quality using best practice and reduced model for develop a better physics of the game" | Captured 18 screens of every mode and reviewed them (see entry 14). Added **reduced-order physics** (`physics.js`) and tests. | see below |
 | 14 | "Improve the game and log all the exchanges" | Integrated the physics into every mode, fixed the issues found in the screen review, added reduced-motion and adaptive resolution, and wrote this log. | see below |
 
+## Entry 15 in detail: the Tower raid
+- **Interpretation:** "clone of the combat system" is read as the *rules* of the classic top-down one-hit-kill brawler. Rules and mechanics are reimplemented from scratch; no art, music, names or level layouts are copied. "Improvement" is read as cybernetic upgrades.
+- **Real names:** the user asked for Intesa Sanpaolo to be the Arasaka Tower. Both are used as in-fiction labels, with a caveat in `docs/LICENSING.md` (trademarks) and a one-string rename path.
+- **Engine (`hotline.js`, `hotline-maps.js`):** 4 floors validated by `scripts/test-maps.js`; breadth-first pathfinding over the grid; line-of-sight vision with a cone; noise radius per weapon; doors that open, swing and stun; downed state and execution; combos; implants (`mantis`, `optic`, `reflex`, `dash`, `subdermal`) each with a cyberpsychosis cost; episodes that invert the controls.
+- **Verification:** a deterministic Playwright harness freezes the live loop and steps the simulation by hand (`S.frozen`); 25+ assertions cover hearing, vision, knockdown, execution, doors, shooting, plating, combo, restart, episodes, the boss, the blade-runner, floor progression and the day-hub link.
+
 ## Infrastructure notes
 
 - The sandbox could not reach cdnjs, so three.js r160 was installed from npm and **vendored** (`three.min.js`).

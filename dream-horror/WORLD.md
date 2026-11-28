@@ -14,7 +14,27 @@ The world turned slowly into **tidally-locked days**: a permanent light side, wh
 Between them lies **the boundary**, a twilight belt, and the city of **Poors** is bolted to the edge of it: a stack of decks and old freighters made of people with no licence, no loan they can repay and no air they can afford.
 Poors has no army. It has **the Free Fleet**: space pirates and mercenaries, sail-and-thruster galleons that raid Concord freight and sell salvage back to the city. Concord answers with the **Navy**, and hires the same Poors pilots as mercenaries when it is cheaper than losing ships.
 
-## Daytime in Poors (the family of engineers)
+## Torino Alta, the Improvements and cyberpsychosis
+On the Light Side the Concord's capital is **Torino Alta** (Turin). Its financial spire is the **Arasaka Tower**, the old Intesa Sanpaolo skyscraper, rebuilt by the Concord as a bank, a clinic and a fortress.
+The Concord sells two kinds of *Improvement*:
+- **For the poor:** the **Greening Loan**. They are grown into plants (see the Verdant).
+- **For the rich of Turin:** **cybernetic Improvements**: mantis blades, optic grids, reflex boosters, Sandevistan bursts, subdermal plating. Sold on the upper floors (the *Improvement Suites*), paid for by the people who built the towers.
+
+Every implant costs a little of the person. Past a threshold the body stops obeying: **cyberpsychosis**. The tower's security staff are the clients who bought too many upgrades and had nothing left but a contract and a gun. The **Chairman** on the roof garden owns the patents on all of them, and has more plating than flesh.
+Aurel can buy the same implants at the Poors ripperdoc. They help, and they make the ringing in his ears louder: his baseline cyberpsychosis lowers his sleep, and sets how far he can push in the tower.
+
+*In-fiction names:* "Arasaka Tower" and "Intesa Sanpaolo" are placeholders chosen for this prototype (see `docs/LICENSING.md`, section Trademarks). Rename them before any public release.
+
+## The Tower raid (Hotline-style combat)
+Four floors: the Lobby, the Trading Floor, the Improvement Suites and the Chairman's Roof Garden. Rules are those of the classic top-down one-hit-kill brawler, with original art, code and names:
+- **Real time**, one hit kills everybody, including you. **R** restarts the floor instantly.
+- Guards have **vision cones** and **ears**: gunshots alert everyone in earshot, melee is nearly silent.
+- **Doors** swing open and knock down whoever stands behind them. Bats, fists, thrown items and doors **knock enemies down**; a downed enemy can be **executed**.
+- Enemies react with a delay, then are accurate. Kill chains build a **combo**, and style (executions, door stuns, thrown weapons) scores extra.
+- Enemies: pistol guards, bat guards, shotgun heavies, **blade-runners** (telegraphed lunge, then stunned), **optic snipers** (laser, long aim), **psychos** (fast, erratic) and the **Chairman** (three armour plates).
+- **Improvements** are the "masks": pick two, each adds cyberpsychosis. Above 40% the world glitches; above 70% there are **episodes** where the controls invert; above 100% they come often. Score is multiplied by `1 + psychosis/200`.
+
+
 The Ressels were engineers. Now:
 - **Low-level work:** Scrap Yard sorting (no skills; the bio crates are warm).
 - **Mid-level work:** Brass Dock Workshop orders on a lathe or at the PCB bench (need skill, pay by the part, leave spare parts).

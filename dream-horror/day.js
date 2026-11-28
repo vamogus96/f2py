@@ -66,7 +66,7 @@ const LOCS = {
   yard: { n: 'Scrap Yard — Low Deck', p: [-3, 1], d: 'Mountains of dead machines on the night side of the city. Everyone who lost an engineering licence in the Purge ends up here at least once.' },
   shop: { n: 'Brass Dock Workshop', p: [3, -2], d: 'Benches, a lathe older than the Concord, a soldering station with a flickering lamp. They hire by the order and pay by the part.' },
   docks: { n: 'Poors Free Docks', p: [-5, -3], d: 'Raider galleons and Navy lighters share the same berths and the same bars. A board with contracts: pirates pay in salvage, Concord pays in credits and fine print.' },
-  tower: { n: 'Spire Tower — Engineering', p: [6, 3], d: 'Glass and clean air, on the light side of the boundary. The only place where an engineer still counts as one. Licences are checked at the door.' },
+  tower: { n: 'Arasaka Tower — Turin (Engineering)', p: [6, 3], d: 'Torino Alta, on the light side: the old Intesa Sanpaolo skyscraper, rebuilt as the Arasaka Tower. Glass, clean air, and on the upper floors the Improvement Suites, where the rich of Turin buy new bodies. The only place where an engineer still counts as one. Licences are checked at the door.' },
 };
 const dist = (a, b) => Math.hypot(LOCS[a].p[0] - LOCS[b].p[0], LOCS[a].p[1] - LOCS[b].p[1]);
 const busFare = (a, b) => Math.round(3 + dist(a, b) * 1.6), busTime = (a, b) => Math.round(8 + dist(a, b) * 6), walkTime = (a, b) => Math.round(10 + dist(a, b) * 16);
@@ -83,15 +83,16 @@ const BUS_LINES = ['4X', '9', '12-Night', '7B'];
 /* ───────────── state ───────────── */
 let D = null;
 const SAVE = 'hl-save-v1';
-function persist() { try { localStorage.setItem(SAVE, JSON.stringify({ xp: D.xp, parts: D.parts, n: D.n, pirate: !!S.pirateSeen, tut: !!(D && D.tut) })); } catch (e) { /* private mode */ } }
+function persist() { try { localStorage.setItem(SAVE, JSON.stringify({ xp: D.xp, parts: D.parts, n: D.n, pirate: !!S.pirateSeen, tut: !!(D && D.tut), implants: (D && D.implants) || [] })); } catch (e) { /* private mode */ } }
 function newDay(n, keep) {
   const prev = keep || {};
   D = {
-    n, t: 360, money: S.carryMoney != null ? S.carryMoney : 160, energy: 100, stress: 10, loc: 'home', tin: prev.tin || 40, tut: !!prev.tut, stim: 0, hush: false,
+    n, t: 360, money: S.carryMoney != null ? S.carryMoney : 160, energy: 100, stress: 10, loc: 'home', tin: prev.tin || 40, tut: !!prev.tut, implants: prev.implants || [], stim: 0, hush: false,
     xp: prev.xp || { pcb: 0, lathe: 0 }, parts: prev.parts || { board: 0, barrel: 0 }, ing: prev.ing || { rice: 1, algae: 0, protein: 0 }, meals: 0, meds: { real: 0, fake: 0 }, chalk: false,
     strike: Math.random() < .4 ? [600 + ((Math.random() * 3) | 0) * 30, 780] : null, log: [], earned: 0, spent: 0, jobs: 0, ended: false,
   };
-  if (n === 1 && !keep) { try { const sv = JSON.parse(localStorage.getItem(SAVE) || 'null'); if (sv) { D.xp = sv.xp || D.xp; D.parts = sv.parts || D.parts; if (sv.pirate) S.pirateSeen = true; D.tut = !!sv.tut; } } catch (e) { /* ignore */ } }
+  if (n === 1 && !keep) { try { const sv = JSON.parse(localStorage.getItem(SAVE) || 'null'); if (sv) { D.xp = sv.xp || D.xp; D.parts = sv.parts || D.parts; if (sv.pirate) S.pirateSeen = true; D.tut = !!sv.tut; D.implants = sv.implants || D.implants; } } catch (e) { /* ignore */ } }
+  S.implants = D.implants; S.psyBase = D.implants.reduce((a, k) => a + ((HL.IMPLANTS || window.HLMaps.IMPLANTS)[k] || { psy: 0 }).psy, 0);
   S.day = D; log(`Day ${n}. 06:00. The meter is already running.`);
   if (D.strike) log(`Radio: transit workers threaten a strike around ${fmt(D.strike[0])}.`);
 }
@@ -341,16 +342,16 @@ function benchPCB(kind) {
 }
 function jobHigh() {
   if (tired(30)) return;
-  gameLathe(.25, 'Spire contract 1/2 — precision shaft', a => {
+  gameLathe(.25, 'Arasaka contract 1/2 — precision shaft', a => {
     const conclude = b => {
       adv(240, 30); const score = (a.ok ? 1 : 0) + (b.ok ? 1 : 0), base = [0, 110, 360][score], pay = Math.round(base * .5);
       if (score) { earn(pay); D.jobs++; D.xp.pcb += score; D.xp.lathe += score; } if (score === 2) D.parts.board++, D.parts.barrel++;
-      log(`Spire Tower: ${score}/2 specs passed${b.note || ''}. Paid ${pay} ₵ (${base} ₵ contract at 50%: your engineering licence was revoked in the 2131 Purge, so they classify you as a "consultant").${score === 2 ? ' (+1 board, +1 barrel)' : ''}`);
+      log(`Arasaka Tower: ${score}/2 specs passed${b.note || ''}. Paid ${pay} ₵ (${base} ₵ contract at 50%: your engineering licence was revoked in the 2131 Purge, so they classify you as a "consultant").${score === 2 ? ' (+1 board, +1 barrel)' : ''}`);
       persist(); render();
     };
-    gamePCB(4, 50, 'Spire contract 2/2 — controller board', b => {
+    gamePCB(4, 50, 'Arasaka contract 2/2 — controller board', b => {
       if (!b.ok) return conclude(b);
-      gameSolder(4, { coach: false, title: 'Spire contract — solder the controller board' }, sol => { b.ok = sol.good >= 3; b.note = ` (${sol.good}/4 joints good)`; conclude(b); });
+      gameSolder(4, { coach: false, title: 'Arasaka contract — solder the controller board' }, sol => { b.ok = sol.good >= 3; b.note = ` (${sol.good}/4 joints good)`; conclude(b); });
     });
   });
 }
@@ -372,6 +373,11 @@ function buy(what) {
   if (D.money < P[0]) { log(`Not enough: ${P[0]} ₵.`); return render(); }
   spend(P[0]); P[2](); adv(10); log(P[1]); render();
 }
+function install(k) {
+  const v = window.HLMaps.IMPLANTS[k]; if (D.implants.includes(k)) return; if (D.money < v.cost) { log(`The ripperdoc wants ${v.cost} ₵ for the ${v.name}.`); return render(); }
+  spend(v.cost); D.implants.push(k); S.implants = D.implants; S.psyBase = D.implants.reduce((a, q) => a + window.HLMaps.IMPLANTS[q].psy, 0); D.tin = clamp(D.tin + 8, 0, 100); adv(45, 10); S.ring = Math.max(S.ring, .015);
+  log(`Installed: ${v.name}. The ripperdoc does not meet your eyes. Cyberpsychosis baseline is now ${S.psyBase}%.`); persist(); render();
+}
 function buyIng(k) { if (D.money < PRICES[k]) { log('Not enough credits.'); return render(); } spend(PRICES[k]); D.ing[k]++; adv(5); log(`Bought ${k} (${PRICES[k]} ₵).`); render(); }
 function sellPart(k) { if (!D.parts[k]) return; D.parts[k]--; const v = k === 'board' ? 38 : 30; earn(v); adv(5); log(`Sold a ${k} for ${v} ₵ (it would have upgraded your ship).`); persist(); render(); }
 function nap() { adv(60); D.energy = clamp(D.energy + 28, 0, 100); D.stress = clamp(D.stress - 8, 0, 100); log('You lie down for an hour. The meter ticks through the wall.'); render(); }
@@ -388,6 +394,7 @@ function actions() {
   if (L === 'market') {
     a.push(act('Pharmacy: lung medicine', '30 ₵ · a day\'s dose for Ilse, licensed, sealed', 'Buy', () => buy('med')), act('Pharmacy: tinnitus drops', '25 ₵ · eases the ringing tonight', 'Buy', () => buy('drops')));
     a.push(act('Alley dealer: "counterfeit" lung medicine', '15 ₵ · 40% chance it is chalk', 'Buy', () => buy('fake'), { cls: 'warn' }), act('Alley dealer: Wake (stimulant)', '15 ₵ · +40 energy now; sleep suffers; ringing rises', 'Buy', () => buy('stim'), { cls: 'warn' }), act('Alley dealer: Hush (sedative)', '18 ₵ · dreamless night: no echoes', 'Buy', () => buy('hush'), { cls: 'warn' }));
+    Object.entries(window.HLMaps.IMPLANTS).forEach(([k, v]) => { const have = D.implants.includes(k); a.push(act(`Ripperdoc: ${v.name}`, `${v.cost} ₵ · +${v.psy}% cyberpsychosis · ${v.desc}${have ? ' · INSTALLED' : ''}`, have ? 'Installed' : 'Install', () => install(k), { disabled: have, cls: 'warn' })); });
     Object.keys(PRICES).forEach(k => a.push(act(`Ingredients: ${k}`, `${PRICES[k]} ₵ · you have ${D.ing[k] || 0}`, 'Buy', () => buyIng(k))));
     ['board', 'barrel'].forEach(k => a.push(act(`Sell a ${k}`, `${k === 'board' ? 38 : 30} ₵ · you have ${D.parts[k]} (or keep it for your ship)`, 'Sell', () => sellPart(k), { disabled: !D.parts[k] })));
   }
@@ -399,7 +406,8 @@ function actions() {
     a.push(act('TUTORIAL: PCB & soldering bench basics', D.tut ? 'Completed. Repeat for practice (75 min, no extra XP).' : 'free · 75 min · route a trace, learn the five soldering rules, pass the exam. Unlocks PCB level 1.', D.tut ? 'Repeat' : 'Start lesson', lessonSolder, { cls: 'alt' }));
     a.push(act('Practice at the lathe', '1 h · −6 ₵ stock · trains Lathe', 'Practice', () => benchLathe('practice')), act('Practice at the PCB bench', '1 h · −6 ₵ boards · trains PCB', 'Practice', () => benchPCB('practice')));
   }
-  if (L === 'tower') a.push(act('HIGH-LEVEL JOB: Spire engineering contract', `4 h · lathe + PCB specs · up to 180 ₵ (50% — no licence) + parts · needs L2 in both (you: PCB L${skill('pcb')}, Lathe L${skill('lathe')})`, 'Take contract', jobHigh, { disabled: skill('pcb') < 2 || skill('lathe') < 2 }));
+  if (L === 'tower') a.push(act('RESISTANCE CONTRACT: raid the Arasaka Tower', `~3 h · 4 floors, Hotline-style: guards with vision cones and ears, doors, executions · you can use only the ${D.implants.length} improvement(s) installed at the ripperdoc · pays by score · −30 energy`, 'Take the raid', () => { if (tired(30)) return; HL.goChapter(HL.idx.hotline); }, { cls: 'warn' }));
+  if (L === 'tower') a.push(act('HIGH-LEVEL JOB: Arasaka engineering contract', `4 h · lathe + PCB specs · up to 180 ₵ (50% — no licence) + parts · needs L2 in both (you: PCB L${skill('pcb')}, Lathe L${skill('lathe')})`, 'Take contract', jobHigh, { disabled: skill('pcb') < 2 || skill('lathe') < 2 }));
   Object.keys(LOCS).forEach(k => { if (k !== L) { a.push(bus(k)); a.push(walkTo(k)); } });
   return a.filter(Boolean);
 }
@@ -431,10 +439,10 @@ function endDay() {
   });
 }
 function nightAfter() {
-  const keep = { tut: D.tut, xp: D.xp, parts: D.parts, ing: D.ing, tin: Math.max(0, D.tin - 5) }; persist();
+  const keep = { implants: D.implants, tut: D.tut, xp: D.xp, parts: D.parts, ing: D.ing, tin: Math.max(0, D.tin - 5) }; persist();
   S.fromDay = true; const n = D.n + 1; S.nextDay = { n, keep }; S.family && (S.family.fakeMed = S.fakeMed);
   HL.goChapter(S.pirateSeen ? 2 : HL.idx.pirate); HL.lockPointer();
-  S.sanity = clamp(.92 - (S.stim || 0) * .08 - (S.tinnitus || 0) / 400, .35, 1); S.ring = Math.max(S.ring, (S.stim || 0) * .01);
+  S.sanity = clamp(.92 - (S.stim || 0) * .08 - (S.tinnitus || 0) / 400 - (S.psyBase || 0) / 300, .3, 1); S.ring = Math.max(S.ring, (S.stim || 0) * .01);
 }
 
 /* ───────────── the Day chapter (3D backdrop: the skyline of Poors on the terminator) ───────────── */

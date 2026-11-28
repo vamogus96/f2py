@@ -51,6 +51,15 @@ Templates with `[PLACEHOLDERS]` are in `docs/license-templates/`:
 
 It only **warns** while no project `LICENSE` exists yet. The GitHub Action `.github/workflows/license-check.yml` runs it on every change under `dream-horror/`.
 
+## 6a. Trademarks and real names (important for the Tower raid)
+
+The Turin tower is called the **Arasaka Tower** and is described as the former **Intesa Sanpaolo** skyscraper. Both names are used as in-fiction labels:
+- *Intesa Sanpaolo* (the bank and its tower) is a registered trademark of Intesa Sanpaolo S.p.A. The Tower raid shows armed security guards and a villainous chairman in a building named after a real bank. That is satire in a fictional world and names no real person, but it can still be objected to, especially in a commercial release.
+- *Arasaka* belongs to the *Cyberpunk* franchise of CD Projekt S.A. A fan game that borrows the name is not licensed by them.
+- The combat rules are inspired by the *Hotline Miami* genre. Rules and mechanics are generally not protected, but its **names, art, music and level layouts are**: this game uses none of them.
+
+Before a public release: rename the tower and the bank (one string each: `Arasaka Tower` in `day.js`, `hotline.js`, `WORLD.md`), or get permission. Not legal advice.
+
 ## 6. Other compliance points
 
 - **Multiplayer relay:** it relays player names and positions in memory only and stores nothing. If you host it publicly, tell players what is processed and consider a short privacy notice (names are user-supplied, so avoid real names).
