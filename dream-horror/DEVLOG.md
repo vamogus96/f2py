@@ -63,3 +63,6 @@ The smallest model that still feels right, per object type, instead of a general
 ### Quality and accessibility additions
 - **Reduced motion:** `?calm=1`, or the operating system's "reduce motion" setting, disables camera roll, FOV kicks, shake and breathing walls.
 - **Adaptive resolution:** the render scale drops to protect the frame rate and recovers when there is headroom (`?quality=high` pins it; automation is pinned).
+
+## Entry 16: a separate private repository
+Request: "Create a new repository private for better implementation of the project." The session's GitHub access is limited to this repository, so a new repository could not be created from the session. Instead the project was **extracted into a standalone repository with its history** (`git subtree split`), adjusted to stand alone (root-level CI, docs without references to the parent), and delivered as a git bundle (`hollow-lullaby.bundle`, 12 commits). Creating the private GitHub repository and pushing the bundle is a two-minute step for the owner (see `docs/NEW_REPO.md` in the new repository). The extracted history also had the early test screenshots that were committed by mistake; they were **removed from the new repository's history** (13 MB down to 0.3 MB), which rewrites its commit hashes.
