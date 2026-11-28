@@ -1,4 +1,4 @@
-name: license-check
+name: checks
 on:
   push:
     paths: ['dream-horror/**', '.github/workflows/license-check.yml']
@@ -19,3 +19,4 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run check:licenses
+      - run: npm run test:physics

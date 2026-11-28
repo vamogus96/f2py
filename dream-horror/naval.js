@@ -5,7 +5,7 @@
       Boards and barrels crafted at the PCB bench and lathe (daytime) upgrade your ship. */
 (() => {
 'use strict';
-const HL = window.HL, { S, A, T, clamp, rnd, pick, lerp } = HL, $ = HL.$;
+const HL = window.HL, { S, A, T, clamp, rnd, pick, lerp } = HL, $ = HL.$, PH = HL.PH;
 
 /* ───────────── styles + DOM ───────────── */
 const st = document.createElement('style');
@@ -226,7 +226,7 @@ const chNaval = {
   spawnPoint(team) { const x = (team === 'pirate' ? -1 : 1) * 52, z = rnd(-26, 26); return { x, z, a: Math.atan2(-x, -z) }; },
   newShip(id, name, team, remote) {
     const sp = this.spawnPoint(team), mesh = makeShip(team); HL.world.add(mesh);
-    const s = { id, name, team, remote: !!remote, x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, shT: 0, alive: true, respawnT: 0, cdL: 0, cdR: 0, boost: 0, boostCd: 0, mesh, upg: { board: 0, barrel: 0 }, kills: 0, deaths: 0, inv: 2, thrust: 0, board: null, tx: sp.x, tz: sp.z, ta: sp.a, bot: null };
+    const s = { id, name, team, remote: !!remote, x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, shT: 0, alive: true, respawnT: 0, cdL: 0, cdR: 0, boost: 0, boostCd: 0, mesh, upg: { board: 0, barrel: 0 }, kills: 0, deaths: 0, inv: 2, thrust: 0, w: 0, m: 1, board: null, tx: sp.x, tz: sp.z, ta: sp.a, bot: null };
     mesh.position.set(s.x, 0, s.z); mesh.rotation.y = s.a; this.ships.push(s); return s;
   },
   start(o) {
@@ -301,27 +301,33 @@ const chNaval = {
     b.t += dt; if (b.t >= 1.5) { m.board = null; this.stats.boards++; if (this.online) Net.send({ t: 'b', target: b.target.id }); else this.die(b.target, 'me', true); A.chime(); }
   },
   /* ── per-frame ── */
+  /* One ship, one fixed step: reduced-order rigid body (physics.js), then contacts, then timers. */
   physics(s, ctl, dt) {
-    const fx = Math.sin(s.a), fz = Math.cos(s.a), sx = Math.cos(s.a), sz = -Math.sin(s.a);
-    let fwd = s.vx * fx + s.vz * fz, lat = s.vx * sx + s.vz * sz;
     s.boost = Math.max(0, s.boost - dt); s.boostCd = Math.max(0, s.boostCd - dt); if (ctl.boost && s.boostCd <= 0 && s.boost <= 0) { s.boost = 1.2; s.boostCd = 5; }
-    const acc = ctl.thrust > 0 ? 15 * (s.boost > 0 ? 2.2 : 1) : ctl.thrust < 0 ? -8 : 0; fwd += acc * dt; fwd *= 1 - .3 * dt; lat *= 1 - 3.2 * dt;
-    const max = s.boost > 0 ? 28 : 15; fwd = clamp(fwd, -6, max); s.a += ctl.turn * (1.6 + clamp(Math.abs(fwd) / 15, 0, 1) * .5) * dt; s.thrust = ctl.thrust;
-    const nfx = Math.sin(s.a), nfz = Math.cos(s.a), nsx = Math.cos(s.a), nsz = -Math.sin(s.a); s.vx = nfx * fwd + nsx * lat; s.vz = nfz * fwd + nsz * lat;
-    s.x += s.vx * dt; s.z += s.vz * dt;
-    const r = Math.hypot(s.x, s.z); if (r > ARENA) { const k = ARENA / r; s.x *= k; s.z *= k; s.vx -= (s.x / r) * 12 * dt; s.vz -= (s.z / r) * 12 * dt; }
-    for (const k of this.rocks) { const dx = s.x - k.x, dz = s.z - k.z, d = Math.hypot(dx, dz) || .01, mr = k.r + 1.4; if (d < mr) { s.x = k.x + dx / d * mr; s.z = k.z + dz / d * mr; const vn = s.vx * dx / d + s.vz * dz / d; if (vn < 0) { s.vx -= 1.6 * vn * dx / d; s.vz -= 1.6 * vn * dz / d; if (!s.remote && -vn > 5) this.hurt(s, -vn * .6, 'rock'); } } }
+    PH.stepShip(s, { thrust: ctl.thrust, turn: ctl.turn, boost: s.boost > 0 }, dt); s.thrust = ctl.thrust;
+    PH.softBoundary(s, ARENA, 6, 2, dt); const r = Math.hypot(s.x, s.z); if (r > ARENA + 8) { s.x *= (ARENA + 8) / r; s.z *= (ARENA + 8) / r; }   // spring first; a hard clamp only as a safety net
+    for (const k of this.rocks) { const hit = PH.circleVsStatic(s, 1.5, k.x, k.z, k.r, .5); if (hit > 5 && !s.remote) this.hurt(s, hit * .6, 'rock'); }
     s.shT = Math.max(0, s.shT - dt); if (s.shT <= 0 && s.sh < 60) s.sh = Math.min(60, s.sh + 9 * dt); s.cdL = Math.max(0, s.cdL - dt); s.cdR = Math.max(0, s.cdR - dt); s.inv = Math.max(0, s.inv - dt);
+  },
+  /* ship-to-ship contacts (impulse, restitution .4). A remote ship is authoritative for itself, so against it we use a very heavy proxy and only move our own ship. */
+  collide() {
+    const L = this.ships;
+    for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+      const a = L[i], b = L[j]; if (!a.alive || !b.alive || (a.remote && b.remote)) continue;
+      const A = a.remote ? { x: a.x, z: a.z, vx: a.vx, vz: a.vz, m: 1e6 } : a, B = b.remote ? { x: b.x, z: b.z, vx: b.vx, vz: b.vz, m: 1e6 } : b;
+      const hit = PH.circleVsCircle(A, 1.5, B, 1.5, .4);
+      if (hit > 5) { if (!a.remote) this.hurt(a, hit * .5, b.id); if (!b.remote) this.hurt(b, hit * .5, a.id); if (hit > 8) A.x !== undefined && this.puff((a.x + b.x) / 2, (a.z + b.z) / 2, 0xffffff, 4); }
+    }
   },
   botThink(b, dt) {
     if (!b.bot) return { thrust: 0, turn: 0, boost: false };
     let tgt = null, bd = 1e9; this.ships.forEach(s => { if (s.team !== b.team && s.alive) { const d = Math.hypot(s.x - b.x, s.z - b.z); if (d < bd) { bd = d; tgt = s; } } });
     const c = { thrust: 0, turn: 0, boost: false };
-    if (!tgt) { c.thrust = .5; const ta = Math.atan2(-b.x, -b.z); c.turn = clamp(this.angDiff(b.a, ta) * 2, -1, 1); return c; }
+    if (!tgt) { c.thrust = .5; const ta = Math.atan2(-b.x, -b.z); c.turn = clamp(this.angDiff(b.a, ta) * 2 - .9 * (b.w || 0), -1, 1); return c; }
     const dx = tgt.x - b.x, dz = tgt.z - b.z, ta = Math.atan2(dx, dz); let side = this.angDiff(b.a, ta) > 0 ? 1 : -1;
-    if (bd > 22) { const want = ta - side * .5; c.turn = clamp(this.angDiff(b.a, want) * 2.5, -1, 1); c.thrust = 1; }
-    else if (bd < 9) { const want = ta + side * 2.3; c.turn = clamp(this.angDiff(b.a, want) * 2.5, -1, 1); c.thrust = 1; }
-    else { const want = ta - side * Math.PI / 2; c.turn = clamp(this.angDiff(b.a, want) * 2.5, -1, 1); c.thrust = Math.hypot(b.vx, b.vz) < 8 ? 1 : 0; }
+    if (bd > 22) { const want = ta - side * .5; c.turn = clamp(this.angDiff(b.a, want) * 2.5 - .9 * (b.w || 0), -1, 1); c.thrust = 1; }
+    else if (bd < 9) { const want = ta + side * 2.3; c.turn = clamp(this.angDiff(b.a, want) * 2.5 - .9 * (b.w || 0), -1, 1); c.thrust = 1; }
+    else { const want = ta - side * Math.PI / 2; c.turn = clamp(this.angDiff(b.a, want) * 2.5 - .9 * (b.w || 0), -1, 1); c.thrust = Math.hypot(b.vx, b.vz) < 8 ? 1 : 0; }
     b.bot.think -= dt; if (b.bot.think <= 0) { b.bot.think = rnd(.25, .6);
       const sx = Math.cos(b.a), sz = -Math.sin(b.a), dot = (dx * sx + dz * sz) / (bd || 1);
       if (bd < 34 && Math.abs(dot) > .8) { if (this.fire(b, dot > 0 ? 1 : -1)) b.bot.think = rnd(.5, 1); } }
@@ -342,21 +348,22 @@ const chNaval = {
       if (keys.KeyQ) this.fire(me, -1); if (keys.KeyE) this.fire(me, 1);
       if (this.mouseDown) { const sx = Math.cos(me.a), sz = -Math.sin(me.a); this.fire(me, ((this.aim.x - me.x) * sx + (this.aim.z - me.z) * sz) > 0 ? 1 : -1); }
       this.tryBoard(dt);
-    } else if (!me.alive) { me.respawnT -= dt; if (me.respawnT <= 0) { const sp = this.spawnPoint(me.team); Object.assign(me, { x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, alive: true, inv: 3, mesh: me.mesh }); me.mesh.visible = true; } }
+    } else if (!me.alive) { me.respawnT -= dt; if (me.respawnT <= 0) { const sp = this.spawnPoint(me.team); Object.assign(me, { w: 0, x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, alive: true, inv: 3, mesh: me.mesh }); me.mesh.visible = true; } }
     // everyone else
     this.ships.forEach(s => {
       if (s === me) return;
-      if (s.remote) { if (s.alive) { s.x = lerp(s.x, s.tx, clamp(dt * 12, 0, 1)); s.z = lerp(s.z, s.tz, clamp(dt * 12, 0, 1)); s.a += this.angDiff(s.a, s.ta) * clamp(dt * 12, 0, 1); s.x += s.vx * dt * .2; s.z += s.vz * dt * .2; } return; }
-      if (!s.alive) { s.respawnT -= dt; if (s.respawnT <= 0) { const sp = this.spawnPoint(s.team); Object.assign(s, { x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, alive: true, inv: 2 }); s.mesh.visible = true; } return; }
+      if (s.remote) { if (s.alive) { const k = 1 - Math.exp(-14 * dt); s.x += (s.tx + s.vx * .05 - s.x) * k; s.z += (s.tz + s.vz * .05 - s.z) * k; s.a += this.angDiff(s.a, s.ta) * k; } return; }
+      if (!s.alive) { s.respawnT -= dt; if (s.respawnT <= 0) { const sp = this.spawnPoint(s.team); Object.assign(s, { w: 0, x: sp.x, z: sp.z, a: sp.a, vx: 0, vz: 0, hp: 100, sh: 60, alive: true, inv: 2 }); s.mesh.visible = true; } return; }
       this.physics(s, this.botThink(s, dt), dt);
     });
+    this.collide();
     this.ships.forEach(s => { s.mesh.position.set(s.x, 0, s.z); s.mesh.rotation.y = s.a; s.mesh.rotation.z = lerp(s.mesh.rotation.z, -(s.thrust ? 0 : 0) , .1); const f = s.mesh.userData.flame; if (f) { f.scale.z = .6 + (s.thrust > 0 ? 1 : .3) * (s.boost > 0 ? 2.2 : 1) * (.8 + Math.random() * .4); f.visible = s.alive; } s.mesh.visible = s.alive && (s === me ? (s.inv > 0 ? Math.floor(S.time * 14) % 2 === 0 : true) : true); });
     // shells
     for (let i = this.shells.length - 1; i >= 0; i--) {
-      const b = this.shells[i]; b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt; b.m.position.set(b.x, 1.1, b.z); let dead = b.life <= 0;
-      if (!dead) for (const k of this.rocks) if (Math.hypot(b.x - k.x, b.z - k.z) < k.r) { dead = true; this.puff(b.x, b.z, 0xaaaaaa, 2); break; }
+      const b = this.shells[i], ox = b.x, oz = b.z; b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt; b.m.position.set(b.x, 1.1, b.z); let dead = b.life <= 0;
+      if (!dead) for (const k of this.rocks) if (PH.segmentCircle(ox, oz, b.x, b.z, k.x, k.z, k.r)) { dead = true; this.puff(b.x, b.z, 0xaaaaaa, 2); break; }
       if (!dead) for (const s of this.ships) {
-        if (!s.alive || s.team === b.team || Math.hypot(s.x - b.x, s.z - b.z) > 1.7) continue;
+        if (!s.alive || s.team === b.team || !PH.segmentCircle(ox, oz, b.x, b.z, s.x, s.z, 1.7)) continue;
         if (!s.remote) this.hurt(s, b.dmg, b.owner); this.puff(b.x, b.z, 0xffffff, 3); dead = true; break;
       }
       if (dead) { HL.world.remove(b.m); this.shells.splice(i, 1); }
@@ -410,4 +417,5 @@ $('nrMenu').addEventListener('click', () => { payout(); location.reload(); });
 const pb = $('pirateBtn'); if (pb) pb.addEventListener('click', e => { e.stopPropagation(); S.fromDay = false; HL.startGame(HL.idx.pirate); });
 const nb = $('navalBtn'); if (nb) nb.addEventListener('click', e => { e.stopPropagation(); HL.startGame(HL.idx.naval); });
 HL.naval = { chPirate, chNaval, Net, FAC, begin(o) { chNaval.autostart = null; HL.goChapter(HL.idx.naval); } };
+HL.debugBoot();
 })();

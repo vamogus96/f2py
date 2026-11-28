@@ -7,6 +7,7 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const pick = a => a[(Math.random() * a.length) | 0];
+const PH = window.HLPhys;   // reduced-order physics (physics.js)
 
 /* ───────────────────────── renderer + post-process ───────────────────────── */
 const canvas = $('c');
@@ -231,6 +232,7 @@ const S = {
   running: false, paused: false, time: 0, chapter: -1, sanity: 1, insanBase: 0, spike: 0, flash: 0, fade: 1, fadeTarget: 1,
   eye: 0, listen: 0, ring: 0, seated: false, uiMode: false, heard: new Set(), moleHelped: false, citations: 0, flashlightOn: true, scrape: 0, wind: 0, tension: 0, input: true, fovKick: 0, shake: 0, wading: false,
 };
+S.calm = /calm=1/.test(location.search) || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);   // accessibility: no camera roll, FOV kicks, shake or breathing walls
 const player = { x: 0, z: 0, yaw: 0, pitch: 0, bob: 0, lastStep: 0, r: 0.32, vx: 0, vz: 0 };
 const colliders = [], interactables = [], updaters = [];
 let world = new T.Group(); scene.add(world);
@@ -283,16 +285,7 @@ function makeDoor(x, z, w, h, hingeLeft, rotY, color = 0x3a2a20) {
 function animateDoor(dr, dt) { dr.angle += clamp(dr.target - dr.angle, -dr.speed * dt, dr.speed * dt); dr.pivot.rotation.y = dr.base + dr.angle * dr.dir; }
 
 /* Collision (circle vs AABB) and line-of-sight */
-function resolve(p, r) {
-  for (const c of colliders) {
-    if (!c.on) continue;
-    const nx = clamp(p.x, c.x0, c.x1), nz = clamp(p.z, c.z0, c.z1), dx = p.x - nx, dz = p.z - nz, d2 = dx * dx + dz * dz;
-    if (d2 < r * r) {
-      if (d2 > 1e-6) { const d = Math.sqrt(d2), k = (r - d) / d; p.x += dx * k; p.z += dz * k; }
-      else { const l = p.x - c.x0, rr = c.x1 - p.x, t = p.z - c.z0, b = c.z1 - p.z, m = Math.min(l, rr, t, b); if (m === l) p.x = c.x0 - r; else if (m === rr) p.x = c.x1 + r; else if (m === t) p.z = c.z0 - r; else p.z = c.z1 + r; }
-    }
-  }
-}
+function resolve(p, r) { for (const c of colliders) if (c.on) PH.circleVsBox(p, r, c); }   // push out + slide: removes the velocity component into the wall
 function losBlocked(ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az;
   for (const c of colliders) {
@@ -1348,15 +1341,15 @@ const chCombat = {
     const mv = p.alive ? Math.hypot(p.vx, p.vz) / 5.6 : 0;
     if (mouseMoved) { this.burst = Math.max(this.burst, .12); mouseMoved = 0; }
     const tgt = p.alive ? clamp(.05 + mv * .95 + this.burst, .05, 1) : .02;
-    this.ts = lerp(this.ts, tgt, clamp(dt * 12, 0, 1)); this.burst = Math.max(0, this.burst - dt * 3.5);
+    this.ts = PH.relax(this.ts, tgt, 12, dt); this.burst = Math.max(0, this.burst - dt * 3.5);
     const sdt = dt * this.ts;
     // player
     if (p.alive) {
       let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
       if (keys.ArrowRight) mx += 1; if (keys.ArrowLeft) mx -= 1; if (keys.ArrowDown) mz += 1; if (keys.ArrowUp) mz -= 1;
       const l = Math.hypot(mx, mz) || 1, sp = 5.6;
-      p.vx = lerp(p.vx, mx / l * sp * (mx || mz ? 1 : 0), clamp(dt * 14, 0, 1)); p.vz = lerp(p.vz, mz / l * sp * (mx || mz ? 1 : 0), clamp(dt * 14, 0, 1));
-      p.x += p.vx * dt; p.z += p.vz * dt; resolve(p, p.r);
+      p.vx = PH.relax(p.vx, mx / l * sp * (mx || mz ? 1 : 0), 14, dt); p.vz = PH.relax(p.vz, mz / l * sp * (mx || mz ? 1 : 0), 14, dt);
+      PH.moveCircle(p, p.vx * dt, p.vz * dt, p.r, colliders);
       const aim = this.aimPoint(); if (aim) p.ang = Math.atan2(aim.x - p.x, aim.z - p.z);
       p.cd = Math.max(0, p.cd - sdt); p.swing = Math.max(0, p.swing - dt);
       this.pm.position.set(p.x, Math.abs(Math.sin(this.clock * 12)) * .05 * mv, p.z); this.pm.rotation.y = p.ang;
@@ -1396,11 +1389,11 @@ const chCombat = {
     });
     // bullets (time-scaled)
     for (let i = this.bullets.length - 1; i >= 0; i--) {
-      const b = this.bullets[i]; b.x += b.vx * sdt; b.z += b.vz * sdt; b.life -= sdt; b.m.position.set(b.x, 1.3, b.z);
+      const b = this.bullets[i], ox = b.x, oz = b.z; b.x += b.vx * sdt; b.z += b.vz * sdt; b.life -= sdt; b.m.position.set(b.x, 1.3, b.z);
       let dead = b.life <= 0;
-      if (!dead) for (const c of colliders) if (c.on && !c.low && b.x > c.x0 && b.x < c.x1 && b.z > c.z0 && b.z < c.z1) { dead = true; this.spark(b.x, b.z, 0xffd080); break; }
-      if (!dead && b.owner === 'p') for (const e of this.enemies) if (e.alive && Math.hypot(e.x - b.x, e.z - b.z) < .45) { this.kill(e, Math.atan2(b.vx, b.vz)); dead = true; break; }
-      if (!dead && b.owner === 'e' && p.alive && Math.hypot(p.x - b.x, p.z - b.z) < .36) { this.die(); dead = true; }
+      if (!dead) for (const c of colliders) if (c.on && !c.low && PH.segmentBox(ox, oz, b.x, b.z, c)) { dead = true; this.spark(ox, oz, 0xffd080); break; }   // swept: a fast bullet cannot skip a wall
+      if (!dead && b.owner === 'p') for (const e of this.enemies) if (e.alive && PH.segmentCircle(ox, oz, b.x, b.z, e.x, e.z, .45)) { this.kill(e, Math.atan2(b.vx, b.vz)); dead = true; break; }
+      if (!dead && b.owner === 'e' && p.alive && PH.segmentCircle(ox, oz, b.x, b.z, p.x, p.z, .36)) { this.die(); dead = true; }
       if (dead) { world.remove(b.m); this.bullets.splice(i, 1); }
     }
     // thrown weapons
@@ -1440,6 +1433,7 @@ const chCombat = {
 const chapters = [ch0, ch1, ch2, ch3, ch4, chOffice, chCombat];
 
 function goChapter(i) {
+  clearTimeout(subTimer); $('sub').classList.remove('on');
   S.chapter = i; currentCh = chapters[i];
   clearWorld(); watcher.g = null; watcher.active = false; ghost.g && (ghost.g.visible = false);
   S.scrape = 0; S.wading = false; S.spike = 0; S.input = true; S.fadeTarget = 1; S.sanity = Math.max(S.sanity, .7); S.flash = 0;
@@ -1518,8 +1512,9 @@ function movePlayer(dt) {
   const len = Math.hypot(f, s) || 1; f /= len; s /= len;
   let sp = (keys.ShiftLeft || keys.ShiftRight ? 4.3 : 2.5) * (S.wading ? .72 : 1) * (S.eye > .5 ? .3 : 1) * (session.mods.heavy ? .8 : 1);
   const tx = (-Math.sin(player.yaw) * f + Math.cos(player.yaw) * s) * sp, tz = (-Math.cos(player.yaw) * f - Math.sin(player.yaw) * s) * sp;
-  player.vx = lerp(player.vx, tx, clamp(dt * 12, 0, 1)); player.vz = lerp(player.vz, tz, clamp(dt * 12, 0, 1));
-  player.x += player.vx * dt; player.z += player.vz * dt; resolve(player, player.r);
+  const rate = (f || s) ? 13 : 18;   // acceleration is a little softer than braking
+  player.vx = PH.relax(player.vx, tx, rate, dt); player.vz = PH.relax(player.vz, tz, rate, dt);
+  PH.moveCircle(player, player.vx * dt, player.vz * dt, player.r, colliders);
   const v = Math.hypot(player.vx, player.vz);
   player.bob += v * dt * 2.3; const ph = Math.sin(player.bob);
   if (v > .5 && ph < 0 && player.lastStep >= 0) { const k = S.chapter === 2 ? 'water' : S.chapter === 3 ? 'tile' : 'wood'; A.step(k); if (session.mods.echo) setTimeout(() => A.step(k), 280); }
@@ -1534,16 +1529,16 @@ function update(dt) {
   if (S.listen > .5 && S.chapter !== 5) S.sanity = Math.max(0, S.sanity - dt * .008);
   const eyeT = keys.KeyQ && S.input ? 1 : 0; S.eye = lerp(S.eye, eyeT, clamp(dt * 9, 0, 1));
   S.fade = lerp(S.fade, S.fadeTarget, clamp(dt * (S.fadeTarget ? 1.5 : 4), 0, 1));
-  if (S.running) { if (!combatMode) { movePlayer(dt); if (S.shake > 0) { S.shake = Math.max(0, S.shake - dt); camera.position.x += (Math.random() - .5) * S.shake * .35; camera.position.y += (Math.random() - .5) * S.shake * .35; } } } else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
+  if (S.running) { if (!combatMode) { movePlayer(dt); if (S.shake > 0) { S.shake = S.calm ? 0 : Math.max(0, S.shake - dt); camera.position.x += (Math.random() - .5) * S.shake * .35; camera.position.y += (Math.random() - .5) * S.shake * .35; } } } else { player.yaw = Math.PI * .85 + Math.sin(S.time * .15) * .15; camera.position.set(player.x, 1.62, player.z); }
   if (currentCh) currentCh.update(dt);
   updaters.forEach(u => u(dt));
   updateGhost(dt); updateEchoes(dt);
-  if (session.mods.breath && S.chapter !== 5 && !combatMode) { const b = Math.sin(S.time * .9); world.scale.set(1 + b * .012, 1 + Math.sin(S.time * .9 + 1) * .025, 1 + b * .012); } else world.scale.set(1, 1, 1);
+  if (session.mods.breath && S.chapter !== 5 && !combatMode && !S.calm) { const b = Math.sin(S.time * .9); world.scale.set(1 + b * .012, 1 + Math.sin(S.time * .9 + 1) * .025, 1 + b * .012); } else world.scale.set(1, 1, 1);
   const insan = clamp((1 - S.sanity) * .75 + S.insanBase + S.spike, 0, 1);
   S.insan = insan;
   // camera feel
-  if (!combatMode) camera.rotation.set(player.pitch, player.yaw, Math.sin(S.time * .7) * insan * .035 + (session.mods.tilt ? session.roll : 0));
-  if (!combatMode) { camera.fov = (session.mods.long ? 88 : 72) + Math.sin(S.time * .5) * insan * 6 + S.spike * 6; camera.updateProjectionMatrix(); }
+  if (!combatMode) camera.rotation.set(player.pitch, player.yaw, S.calm ? 0 : Math.sin(S.time * .7) * insan * .035 + (session.mods.tilt ? session.roll : 0));
+  if (!combatMode) { camera.fov = (session.mods.long ? 88 : 72) + (S.calm ? 0 : Math.sin(S.time * .5) * insan * 6 + S.spike * 6); camera.updateProjectionMatrix(); }
   torch.intensity = S.flashlightOn ? 1.7 * (insan > .4 && Math.random() < insan * .08 ? .1 : 1) : 0;
   torch.angle = .5 - insan * .12; if (session.mods.pulse) torch.intensity *= .72 + .28 * Math.sin(S.time * 5.3);
   const U = post.mat.uniforms; if (!combatMode) U.listen.value = S.listen; U.ghost.value = session.mods.double ? 1 : 0; U.hue.value = session.mods.hue ? S.time * .05 : 0;
@@ -1557,9 +1552,18 @@ function update(dt) {
   // the Watcher's scratching only matters while the screen is not black
 }
 let last = performance.now();
+const stepper = new PH.Stepper();
+const perf = { ema: 16.7, n: 0, pr: renderer.getPixelRatio(), max: renderer.getPixelRatio(), fixed: /quality=high/.test(location.search) || !!navigator.webdriver };
+function adaptQuality(ms) {   // dynamic resolution: trade pixels for frame rate, never the other way round
+  if (S.paused || document.hidden || ms > 500 || perf.fixed) return;
+  perf.ema += (ms - perf.ema) * .05; if (++perf.n % 45) return;
+  if (perf.ema > 26 && perf.pr > .6) { perf.pr = Math.max(.6, perf.pr - .15); renderer.setPixelRatio(perf.pr); resize(); }
+  else if (perf.ema < 15 && perf.pr < perf.max) { perf.pr = Math.min(perf.max, perf.pr + .1); renderer.setPixelRatio(perf.pr); resize(); }
+}
 function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
-  if (!S.paused) { try { update(dt); } catch (err) { if (!frame.warned) { frame.warned = true; console.error('update error', err); } } }
+  const frameDt = (now - last) / 1000; last = now;
+  if (!S.paused) S.steps = stepper.advance(frameDt, step => { try { update(step); } catch (err) { if (!frame.warned) { frame.warned = true; console.error('update error', err); } } });
+  adaptQuality(frameDt * 1000);
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
   renderer.setRenderTarget(null); renderer.render(post.scene, post.cam);
   requestAnimationFrame(frame);
@@ -1571,12 +1575,14 @@ requestAnimationFrame(frame);
 
 // debug / test hooks
 window.HL = {
-  T, S, A, $, rnd, clamp, lerp, pick, mkCanvas, noise, mulberry, texWood, texNoise, texChecker, texWall, session, canvas, keys, mouseNDC, camera, scene, renderer, post, amb, moon, torch,
+  T, S, A, $, PH, rnd, clamp, lerp, pick, mkCanvas, noise, mulberry, texWood, texNoise, texChecker, texWall, session, canvas, keys, mouseNDC, camera, scene, renderer, post, amb, moon, torch,
   mat, tmat, box, cyl, sph, slab, wallBox, pointLight, clearWorld, addInteract, colliders, interactables, updaters, resolve, losBlocked, makeFighter, makeWatcher, makeDoor, animateDoor, canSee,
   say, card, later, showEnd, goChapter, startGame, lockPointer, chOffice, FAMILY, player, watcher, addEcho,
   get world() { return world; }, idx: {}, cleanups: [],
   registerChapter(name, ch) { chapters.push(ch); this.idx[name] = chapters.length - 1; return chapters.length - 1; },
 };
 window.__dream = { ch4, chOffice, chCombat, session, newSession, S, player, goChapter, startGame, watcher, camera, chapters, say, colliders };
-const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search)) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); }
+// Deep link (?debug#ch=N). Run by the last-loaded module, because chapters 7-9 register after this file executes.
+HL.debugBoot = () => { const m = /ch=(\d)/.exec(location.hash); if (m && /debug/.test(location.search) && chapters[+m[1]]) { S.running = true; S.startCh = +m[1]; goChapter(+m[1]); $('menu').classList.add('hidden'); } };
+if (!document.querySelector('script[src="naval.js"]')) HL.debugBoot();
 })();

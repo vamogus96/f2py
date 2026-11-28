@@ -161,3 +161,11 @@ Prototype: `gameSolder` and `lessonSolder` in `day.js`.
 - **Coaching:** a pure function `FText GetHint(const FSolderState&)` picks the hint, so the tutorial and the paid job share one mini-game with `bShowHints` switched on or off.
 - **Tutorial flow:** a list of steps (`TArray<FLessonStep>`), each with a pass condition. Retry on fail, award the certificate once (a `SaveGame` flag).
 - *Homework:* add a *bridge* mechanic: adjacent pads short out if both get a blob. Expose the tolerances to designers with `UPROPERTY(EditAnywhere, meta=(ClampMin=0))`.
+
+## Bonus lesson — physics with reduced-order models and a fixed time step
+Prototype: `physics.js` and `scripts/test-physics.js`.
+- **Fixed step:** run gameplay at a constant `1/60` s. In UE5, Chaos already sub-steps physics: *Project Settings → Physics → Substepping* (`MaxSubstepDeltaTime`, `MaxSubsteps`). For your own movement code, do the work in a component's `TickComponent` with a fixed accumulator, or use *Async Physics Tick* and `FPhysicsReplication` for networked bodies.
+- **Reduced model first:** a ship does not need a full rigid-body solver. `AActor` + a custom `UMovementComponent` with three states (surge, sway, yaw rate) and drag `F = -(c1 + c2|v|)v` is cheaper, stable and easier to tune than tuning mass, damping and friction on a physics body.
+- **Contacts:** resolve along the contact normal and remove the velocity going into the wall (sliding); use `SweepSingleByChannel` for fast projectiles instead of overlap tests at the end of the move, which is the swept test in `physics.js`.
+- **Exact lag:** `v = target + (v - target) * exp(-rate * dt)` is frame-rate independent; `FMath::Lerp(v, target, dt * rate)` is not (it is only the first term of the exponential). In UE5 you can use `FMath::FInterpTo` for the same purpose, which is also not exact at large `dt`.
+- *Homework:* write the 17 tests as UE **Automation Tests** (`IMPLEMENT_SIMPLE_AUTOMATION_TEST`) and run them in *Session Frontend*.
