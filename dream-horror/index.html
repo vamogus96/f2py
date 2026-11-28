@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hollow Lullaby</title>
+<style>
+  :root{--ink:#d9d2c4;--blood:#8a1c1c;--bg:#050508}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  #sub{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);max-width:min(80vw,720px);text-align:center;font-size:clamp(16px,2.2vw,24px);font-style:italic;letter-spacing:.03em;text-shadow:0 0 8px #000,0 0 2px #000;opacity:0;transition:opacity 1.2s}
+  #sub.on{opacity:1}
+  #prompt{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-size:15px;letter-spacing:.15em;text-transform:uppercase;opacity:0;transition:opacity .2s;text-shadow:0 0 6px #000}
+  #prompt.on{opacity:.9}
+  #dot{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#fff;opacity:.35}
+  #card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity 2s;text-align:center;letter-spacing:.3em;text-transform:uppercase}
+  #card.on{opacity:1}
+  #card small{display:block;letter-spacing:.2em;opacity:.6;font-size:14px;margin-bottom:12px}
+  #card b{font-weight:400;font-size:clamp(22px,4vw,44px)}
+  #san{position:absolute;left:18px;bottom:18px;width:120px;height:3px;background:#ffffff18}
+  #san i{display:block;height:100%;width:100%;background:#b9b3a4;transition:width .3s,background .3s}
+  #hint{position:absolute;right:18px;bottom:14px;font-size:12px;opacity:.35;letter-spacing:.1em;text-align:right;line-height:1.7}
+  .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:safe center;overflow-y:auto;flex-direction:column;background:radial-gradient(ellipse at center,#0b0b12 0%,#020204 80%);text-align:center;padding:24px;z-index:5;cursor:pointer}
+  .screen.hidden{display:none}
+  .screen h1{font-weight:400;font-size:clamp(34px,8vw,84px);letter-spacing:.25em;margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 30px #5a0d0d}
+  .screen p{max-width:560px;opacity:.7;line-height:1.6;margin:8px 0}
+  .screen .go{margin-top:26px;border:1px solid #d9d2c466;padding:12px 34px;letter-spacing:.3em;text-transform:uppercase;font-size:14px;animation:pulse 3s infinite}
+  .keys{font-size:13px;opacity:.55;letter-spacing:.08em;margin-top:22px;line-height:1.9}
+  @keyframes pulse{50%{opacity:.4}}
+  .sess{margin-top:18px;font-size:13px;letter-spacing:.08em;opacity:.75;line-height:1.7}
+  .sess span{color:#9fe0ff}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+  .go.small{margin-top:10px;padding:8px 16px;font-size:11px;animation:none;opacity:.8}
+  .go.small:hover{opacity:1}
+  .go.green{border-color:#7ad06a88;color:#b4ff8a}
+  body.office #sub{bottom:52%}
+  body.office #dot,body.office #san{display:none}
+  #office{position:fixed;left:0;right:0;bottom:0;height:46vh;z-index:4;display:flex;flex-direction:column;background:linear-gradient(#1a140fe0,#0c0907f5);border-top:1px solid #6a5a44;font-family:"Courier New",monospace;color:#e8dcc4}
+  #office.hidden{display:none}
+  #ofTop{display:flex;gap:18px;flex-wrap:wrap;padding:8px 14px;font-size:12px;letter-spacing:.08em;border-bottom:1px solid #3a3024;text-transform:uppercase}
+  #ofBody{flex:1;display:flex;gap:12px;padding:10px 12px;overflow:auto;min-height:0}
+  #ofRules{flex:0 0 240px;background:#d9cfb6;color:#2a2218;padding:10px;font-size:12px;line-height:1.45}
+  #ofRules ol{padding-left:18px;margin:6px 0}
+  #ofRules li.new{color:#1f5a2a}
+  #ofDocs{flex:1;display:flex;gap:10px;flex-wrap:wrap;align-content:flex-start;position:relative;min-width:0}
+  .doc{background:#e9e0c8;color:#2a2218;padding:10px 12px;font-size:12px;line-height:1.55;width:200px;max-width:100%;box-shadow:0 4px 10px #0008}
+  .doc h4{margin:0 0 6px;font-size:12px;letter-spacing:.12em;border-bottom:1px solid #2a221855;padding-bottom:4px}
+  .doc.permit{background:#c9d2d6}.doc.loan{background:#cfe3c2}
+  .doc.note{background:#f3eed8;font-family:Georgia,serif;font-style:italic;transform:rotate(-2deg);width:190px}
+  .seal{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid #7a1a1a;color:#7a1a1a;font-weight:bold;vertical-align:middle}
+  .seal.none{border:2px dashed #7778}
+  #ofActions{flex:0 0 170px;display:flex;flex-direction:column;gap:8px}
+  #ofActions button{font:inherit;padding:12px;border:1px solid #0006;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-weight:bold}
+  #bApprove{background:#3f6a3a;color:#eef}#bDeny{background:#7a2a22;color:#fee}#bRefer{background:#2f5a46;color:#dfe}
+  #ofMsg{font-size:12px;line-height:1.4;opacity:0;transition:opacity .4s;color:#ffd890}
+  #ofMsg.on{opacity:1}#ofMsg.bad{color:#ff7a6a}
+  .stamp{position:absolute;top:28%;left:18%;font-size:30px;font-weight:bold;border:4px solid;padding:4px 14px;transform:rotate(-12deg);opacity:.85;pointer-events:none}
+  .stamp.approve{color:#2f7a2a;border-color:#2f7a2a}.stamp.deny{color:#a0221a;border-color:#a0221a}.stamp.refer{color:#1f6a4a;border-color:#1f6a4a}
+  b.neg{color:#ff7a6a} b.pos{color:#9ae08a}
+  #ofSummary{justify-content:flex-start;overflow-y:auto;font-family:"Courier New",monospace}
+  #ofSummary h1{margin-top:8px}
+  .famh{font-weight:400;font-size:14px;letter-spacing:.2em;text-transform:uppercase;opacity:.7;margin:14px 0 8px}
+  #family{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;width:min(860px,100%)}
+  #famCards{display:flex;flex-direction:column;gap:8px;flex:0 1 270px;min-width:0}
+  .fam{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto auto;column-gap:10px;text-align:left;background:#15120f;border:1px solid #3a3024;color:#e8dcc4;padding:8px 10px;cursor:pointer;font:inherit}
+  .fam.sel{border-color:#d8b070;background:#221b13}
+  .fam .av{grid-row:1/4;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#111}
+  .fam small{opacity:.6;font-size:11px}.fam em{font-size:12px;font-style:normal}
+  em.ok{color:#9ae08a}em.warn{color:#e8c060}em.bad{color:#ff7a6a}
+  #famDetail{flex:1 1 320px;min-width:0;background:#e9e0c8;color:#2a2218;padding:12px 14px;text-align:left;font-size:13px}
+  #famDetail h3{margin:0 0 4px}#famDetail h3 small{font-weight:400;opacity:.6;font-size:12px}#famDetail p{margin:4px 0 10px;font-style:italic;font-family:Georgia,serif}
+  .need{display:grid;grid-template-columns:1fr auto 80px;gap:10px;align-items:center;padding:6px 0;border-top:1px solid #0002;text-align:left}
+  #famHouse{width:min(860px,100%);margin-top:10px;font-size:13px}
+  #famHouse .need{border-top:1px solid #ffffff18}
+  .need button{font:inherit;font-size:12px;padding:6px;border:1px solid #0006;background:#7a2a22;color:#fee;cursor:pointer;text-transform:uppercase;letter-spacing:.08em}
+  .need button.on{background:#3f6a3a;color:#eef}.need button.on.bad{background:#2f5a46;color:#dfe;outline:2px solid #b4ff5a}
+  #famTotals{margin:12px 0 0;font-size:14px}
+  .go.disabled{opacity:.3;pointer-events:none;animation:none}
+  .go.neon{border-color:#ff3aa088;color:#ff7ac8}
+  body.combat #dot,body.combat #san,body.combat #hint,body.combat #prompt{display:none}
+  #combat{position:fixed;inset:0;pointer-events:none;z-index:3;font-family:Impact,"Arial Black",sans-serif;font-style:italic;letter-spacing:.04em}
+  #combat.hidden{display:none}
+  #cbLevel{position:absolute;left:18px;top:14px;font-size:14px;color:#8fe8ff;text-shadow:0 0 8px #0ff8}
+  #cbScore{position:absolute;left:18px;top:36px;font-size:clamp(26px,4vw,44px);color:#ff3aa0;text-shadow:3px 3px 0 #3affe0}
+  #cbCombo{position:absolute;left:20px;top:clamp(70px,10vw,92px);font-size:22px;color:#fff36a;text-shadow:2px 2px 0 #ff3aa0}
+  #cbWeapon{position:absolute;right:18px;bottom:52px;font-size:clamp(20px,3vw,32px);color:#fff;text-shadow:3px 3px 0 #ff3aa0}
+  #cbTime{position:absolute;right:18px;bottom:30px;width:160px;height:6px;background:#ffffff22}
+  #cbTime i{display:block;height:100%;width:0;background:#ff3a3a}
+  #cbTime span{position:absolute;right:0;top:8px;font-size:11px;font-family:Georgia,serif;font-style:normal;opacity:.6;letter-spacing:.2em}
+  #cbMsg{position:absolute;left:50%;top:18%;transform:translateX(-50%) skewX(-8deg);font-size:clamp(22px,4.5vw,52px);color:#fff;text-shadow:4px 4px 0 #ff2244,-2px -2px 0 #3affe0;text-align:center;width:92vw;opacity:0;transition:opacity .25s}
+  #cbMsg.on{opacity:1}
+  #cbHelp{position:absolute;left:18px;bottom:14px;font-family:Georgia,serif;font-style:normal;font-size:11px;opacity:.45;line-height:1.6;max-width:70vw}
+  @media (max-width:720px){#office{height:60vh}#ofBody{flex-direction:column}#ofRules,#ofActions{flex:none}#ofActions{flex-direction:row;flex-wrap:wrap}#ofActions button{flex:1}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="dot"></div>
+  <div id="prompt"></div>
+  <div id="sub"></div>
+  <div id="card"><small></small><b></b></div>
+  <div id="san"><i></i></div>
+  <div id="hint">F flashlight · hold Q close eyes · hold R listen</div>
+</div>
+<div id="menu" class="screen">
+  <h1>Hollow Lullaby</h1>
+  <p>Year 47 of the Concord. Breathing is taxed by the litre, and the price goes up every afternoon. Aurel Ressel stamps oxygen permits in Booth 9. His ears never stop ringing.</p>
+  <p>At night he dreams of the people he sent away. In his dreams the ringing is how he hears them.</p>
+  <div class="go">Click to enter the dream</div>
+  <div id="session" class="sess"></div>
+  <div class="row">
+    <div class="go small" id="rerollBtn">Reroll the dream</div>
+    <div class="go small" id="officeBtn">Waking: Oxygen Tax Bureau</div>
+    <div class="go small green" id="demoBtn">Demo: The Verdant</div>
+    <div class="go small neon" id="combatBtn">Combat sessions (2.5D)</div>
+    <div class="go small" id="tutBtn" style="border-color:#9fe0ff88;color:#9fe0ff">Tutorial: PCB &amp; soldering</div>
+    <div class="go small" id="dayBtn" style="border-color:#ffd89088;color:#ffd890">Daytime: the Ressels, Poors 2147</div>
+    <div class="go small" id="pirateBtn" style="border-color:#40d0ff88;color:#8fe8ff">Dream: the Captain's Watch</div>
+    <div class="go small" id="hotlineBtn" style="border-color:#ff3aa088;color:#ff7ac8">Torino: Arasaka Tower raid (Hotline-style)</div>
+    <div class="go small" id="navalBtn" style="border-color:#ffa03088;color:#ffb860">Void battle (solo / online)</div>
+  </div>
+  <div class="keys">WASD move · Shift run · mouse look (arrows also work)<br>E interact · F flashlight · hold Q close your eyes · hold R listen to the ringing<br>Headphones recommended</div>
+</div>
+<div id="combat" class="hidden">
+  <div id="cbLevel"></div>
+  <div id="cbScore"></div>
+  <div id="cbCombo"></div>
+  <div id="cbWeapon"></div>
+  <div id="cbTime"><i></i><span>time</span></div>
+  <div id="cbMsg"></div>
+  <div id="cbHelp">WASD move · mouse aim · left click attack / shoot · right click or E throw / pick up · R restart · Esc pause<br>Time moves only when you move. Bullets kill in one hit, yours and theirs.</div>
+</div>
+<div id="office" class="hidden">
+  <div id="ofTop"></div>
+  <div id="ofBody">
+    <div id="ofRules"></div>
+    <div id="ofDocs"></div>
+    <div id="ofActions"><button id="bApprove">1 · Approve</button><button id="bDeny">2 · Deny</button><button id="bRefer">3 · Refer to Concord</button><div id="ofMsg"></div></div>
+  </div>
+</div>
+<div id="ofSummary" class="screen hidden" style="cursor:default">
+  <h1 style="font-size:30px">End of shift</h1>
+  <p id="sumBody" style="font-family:'Courier New',monospace;opacity:.9;font-size:13px"></p>
+  <h2 class="famh">The household — choose who the money is for</h2>
+  <div id="family"><div id="famCards"></div><div id="famDetail"></div></div>
+  <div id="famHouse"></div>
+  <div id="famTotals"></div>
+  <div class="go" id="sleepBtn" style="cursor:pointer">Confirm and go to sleep</div>
+</div>
+<div id="pause" class="screen hidden"><h1 style="font-size:40px">Paused</h1><div class="go">Click to return</div></div>
+<div id="end" class="screen hidden"><h1 style="font-size:44px">Are you awake?</h1><p id="endtxt"></p><div class="go" id="endBtn">Click to dream again</div></div>
+<script src="three.min.js"></script>
+<script src="physics.js"></script>
+<script src="hotline-maps.js"></script>
+<script src="game.js"></script>
+<script src="day.js"></script>
+<script src="naval.js"></script>
+<script src="hotline.js"></script>
+</body>
+</html>

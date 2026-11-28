@@ -1,0 +1,2 @@
+// SPDX-FileCopyrightText: [YEAR] [COPYRIGHT HOLDER]
+// SPDX-License-Identifier: [SPDX-ID, e.g. MIT]
